@@ -153,7 +153,7 @@ tr:last-child td{border-bottom:0}
       </div>
       <div class="card section">
         <div class="section-title"><h2>Resumo mensal</h2></div>
-        <div class="table-wrap"><table><thead><tr><th>Operador</th><th>Concluídas no mês</th><th>Última conclusão</th><th>Próximo da vez</th></tr></thead><tbody id="dashboardTable"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Operador</th><th>Concluídas no mês</th><th>Última OS recebida</th><th>Próximo da vez</th></tr></thead><tbody id="dashboardTable"></tbody></table></div>
       </div>
     </section>
 
@@ -320,14 +320,24 @@ function lastCompleted(id){
   return db.orders.filter(o=>String(o.operatorId)===String(id)&&o.status==='done'&&o.completedAt)
     .sort((a,b)=>((normalizeDate(b.completedAt)+'T'+(b.completedTime||'00:00')).localeCompare(normalizeDate(a.completedAt)+'T'+(a.completedTime||'00:00'))))[0]||null;
 }
+function lastAssigned(id){
+  return db.orders.filter(o=>String(o.operatorId)===String(id)&&o.entry)
+    .sort((a,b)=>{
+      const da=normalizeDate(a.entry)+'T'+(a.entryTime||'00:00');
+      const dbb=normalizeDate(b.entry)+'T'+(b.entryTime||'00:00');
+      return dbb.localeCompare(da);
+    })[0]||null;
+}
 function nextOperator(){
   const ops=activeOperators(); if(!ops.length)return null;
-  const never=ops.filter(o=>!lastCompleted(o.id));
+  // A fila é definida pela DATA/HORA DE ENTRADA da última OS atribuída ao operador.
+  // Assim, uma OS recebida por necessidade conta mesmo que ainda esteja ativa ou já tenha sido concluída.
+  const never=ops.filter(o=>!lastAssigned(o.id));
   if(never.length)return never.sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))[0];
   return ops.slice().sort((a,b)=>{
-    const la=lastCompleted(a.id),lb=lastCompleted(b.id);
-    const da=la?(normalizeDate(la.completedAt)+'T'+(la.completedTime||'00:00')):'9999-12-31T23:59';
-    const dbb=lb?(normalizeDate(lb.completedAt)+'T'+(lb.completedTime||'00:00')):'9999-12-31T23:59';
+    const la=lastAssigned(a.id),lb=lastAssigned(b.id);
+    const da=la?(normalizeDate(la.entry)+'T'+(la.entryTime||'00:00')):'9999-12-31T23:59';
+    const dbb=lb?(normalizeDate(lb.entry)+'T'+(lb.entryTime||'00:00')):'9999-12-31T23:59';
     return da.localeCompare(dbb)||a.name.localeCompare(b.name,'pt-BR');
   })[0];
 }
@@ -378,7 +388,7 @@ function renderDashboard(){
   document.getElementById('mLate').textContent=db.orders.filter(isLate).length;
   document.getElementById('mOperators').textContent=activeOperators().length;
   const next=nextOperator();
-  document.getElementById('nextTurn').innerHTML=next?`<strong>Próxima vez:</strong> ${escapeHtml(next.name)} — o sistema indica este operador com base na data da última ordem concluída.`:'<strong>Cadastre pelo menos um operador ativo</strong> para iniciar a distribuição.';
+  document.getElementById('nextTurn').innerHTML=next?`<strong>Próxima vez:</strong> ${escapeHtml(next.name)} — o sistema indica este operador com base na data de entrada da última OS atribuída.`:'<strong>Cadastre pelo menos um operador ativo</strong> para iniciar a distribuição.';
   document.getElementById('turnNotice').innerHTML=next?`<strong>De quem é a vez?</strong> ${escapeHtml(next.name)}`:'Cadastre um operador ativo para distribuir ordens.';
   const counts=activeOperators().map(o=>({o,c:done.filter(x=>operatorMatchesOrder(x,o.id)).length}));
   const max=Math.max(1,...counts.map(x=>x.c));
@@ -403,7 +413,11 @@ function renderHistory(){
   if(q)rows=rows.filter(o=>(String(o.number||'')+' '+String(o.title||'')).toLowerCase().includes(q));
   if(op)rows=rows.filter(o=>operatorMatchesOrder(o,op));
   if(m)rows=rows.filter(o=>monthOf(o.completedAt)===m);
-  rows.sort((a,b)=>(normalizeDate(b.completedAt)+'T'+(b.completedTime||'00:00')).localeCompare(normalizeDate(a.completedAt)+'T'+(a.completedTime||'00:00')));
+  rows.sort((a,b)=>{
+    const da=normalizeDate(a.entry)+'T'+(a.entryTime||'00:00');
+    const dbb=normalizeDate(b.entry)+'T'+(b.entryTime||'00:00');
+    return dbb.localeCompare(da);
+  });
   document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId,o.operatorName))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${fmtDateTime(o.completedAt,o.completedTime)}</td><td><span class="badge done">Concluída</span></td><td><div class="actions"><button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver para edição</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem concluída encontrada.</td></tr>';
 }
 
