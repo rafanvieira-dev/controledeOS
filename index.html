@@ -159,9 +159,11 @@ th{background:#f7f8fa;font-size:12px;text-transform:uppercase;color:#58616d}tr:l
       <div class="section-title"><h2>Histórico de Ordens Concluídas</h2></div>
       <div class="card">
         <div class="searchbar">
-          <input id="historySearch" placeholder="Pesquisar número ou título..." oninput="renderHistory()">
-          <select id="historyOperator" onchange="renderHistory()"><option value="">Todos os operadores</option></select>
-          <input id="historyMonth" type="month" onchange="renderHistory()">
+          <input id="historySearch" placeholder="Pesquisar número ou título...">
+          <select id="historyOperator"><option value="">Todos os operadores</option></select>
+          <input id="historyMonth" type="month">
+          <button class="btn btn-primary" type="button" onclick="searchHistory()">🔎 Pesquisar</button>
+          <button class="btn btn-secondary" type="button" onclick="clearHistoryFilters()">Limpar filtros</button>
         </div>
         <div class="table-wrap"><table><thead><tr><th>Nº Ordem</th><th>Título</th><th>Operador</th><th>Entrada</th><th>Prevista</th><th>Conclusão</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="historyTable"></tbody></table></div>
       </div>
@@ -266,7 +268,21 @@ function today(){return new Date().toISOString().slice(0,10);}
 function monthNow(){return today().slice(0,7);}
 function fmt(d){if(!d)return '-';const [y,m,day]=d.split('-');return `${day}/${m}/${y}`;}
 function fmtDateTime(d,t){if(!d)return '-';return `${fmt(d)}${t?' às '+t:''}`;}
-function monthOf(d){return d?d.slice(0,7):'';}
+function normalizeDateValue(d){
+  if(!d)return '';
+  if(typeof d==='string')return d.slice(0,10);
+  if(d instanceof Date && !isNaN(d))return d.toISOString().slice(0,10);
+  if(typeof d.toDate==='function'){
+    const dt=d.toDate();
+    return dt instanceof Date && !isNaN(dt)?dt.toISOString().slice(0,10):'';
+  }
+  if(typeof d==='object' && typeof d.seconds==='number'){
+    const dt=new Date(d.seconds*1000);
+    return isNaN(dt)?'':dt.toISOString().slice(0,10);
+  }
+  return String(d).slice(0,10);
+}
+function monthOf(d){return normalizeDateValue(d).slice(0,7);}
 function nowTime(){const n=new Date();return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;}
 function dateTimeValue(date,time){if(!date)return null;return new Date(`${date}T${time||'00:00'}:00`);}
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
@@ -360,43 +376,65 @@ function renderActive(){
   if(op)rows=rows.filter(o=>o.operatorId===op);if(st==='late')rows=rows.filter(isLate);
   document.getElementById('activeTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${progressHtml(o)}</td><td>${isLate(o)?'<span class="badge late">Atrasada</span>':'<span class="badge active">Ativa</span>'}</td><td><div class="actions"><button class="btn btn-blue" onclick="editOrder('${o.id}')">Editar</button><button class="btn btn-primary" onclick="completeOrder('${o.id}')">Concluir</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem ativa encontrada.</td></tr>';
 }
+function searchHistory(){
+  renderHistory();
+  toast('Filtro aplicado.');
+}
+
+function clearHistoryFilters(){
+  document.getElementById('historySearch').value='';
+  document.getElementById('historyOperator').value='';
+  document.getElementById('historyMonth').value='';
+  renderHistory();
+  toast('Filtros limpos.');
+}
+
 function renderHistory(){
   const q=(document.getElementById('historySearch').value||'').trim().toLowerCase();
   const op=(document.getElementById('historyOperator').value||'').trim();
   const m=(document.getElementById('historyMonth').value||'').trim();
 
-  // Começa somente com ordens concluídas.
-  let rows=db.orders.filter(o=>o.status==='done');
+  const selectedOperator=db.operators.find(x=>String(x.id)===String(op));
+  const selectedName=selectedOperator?String(selectedOperator.name||'').trim().toLowerCase():'';
 
-  // Filtro por operador: compara como texto para evitar problemas
-  // caso algum registro antigo tenha sido salvo com outro tipo de valor.
+  let rows=db.orders.filter(o=>String(o.status||'').toLowerCase()==='done');
+
+  // O Firestore pode conter registros antigos com operatorId diferente do formato atual.
+  // Por isso o filtro aceita ID ou, como compatibilidade, o nome salvo no registro.
   if(op){
-    rows=rows.filter(o=>String(o.operatorId??'')===String(op));
+    rows=rows.filter(o=>{
+      const idMatch=String(o.operatorId??'').trim()===String(op);
+      const savedName=String(o.operatorName??o.operator??'').trim().toLowerCase();
+      const nameMatch=selectedName && savedName===selectedName;
+      return idMatch||nameMatch;
+    });
   }
 
-  // Filtro por mês da data de conclusão.
+  // O filtro de data é pelo mês da conclusão da ordem.
   if(m){
     rows=rows.filter(o=>monthOf(o.completedAt)===m);
   }
 
-  // Pesquisa por número ou título.
   if(q){
-    rows=rows.filter(o=>(String(o.number??'')+' '+String(o.title??'')).toLowerCase().includes(q));
+    rows=rows.filter(o=>{
+      const text=[o.number,o.title,operatorName(o.operatorId),o.operatorName,o.operator].filter(Boolean).join(' ').toLowerCase();
+      return text.includes(q);
+    });
   }
 
   rows.sort((a,b)=>{
-    const da=(b.completedAt||'')+'T'+(b.completedTime||'00:00');
-    const dbb=(a.completedAt||'')+'T'+(a.completedTime||'00:00');
-    return da.localeCompare(dbb);
+    const da=normalizeDateValue(b.completedAt)+'T'+String(b.completedTime||'00:00');
+    const dbb=normalizeDateValue(a.completedAt)+'T'+String(a.completedTime||'00:00');
+    return dbb.localeCompare(da);
   });
 
   document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr>
     <td><strong>${escapeHtml(o.number)}</strong></td>
     <td>${escapeHtml(o.title)}</td>
-    <td>${escapeHtml(operatorName(o.operatorId))}</td>
-    <td>${fmtDateTime(o.entry,o.entryTime)}</td>
-    <td>${fmtDateTime(o.due,o.dueTime)}</td>
-    <td>${fmtDateTime(o.completedAt,o.completedTime)}</td>
+    <td>${escapeHtml(operatorName(o.operatorId)||o.operatorName||o.operator||'—')}</td>
+    <td>${fmtDateTime(normalizeDateValue(o.entry),o.entryTime)}</td>
+    <td>${fmtDateTime(normalizeDateValue(o.due),o.dueTime)}</td>
+    <td>${fmtDateTime(normalizeDateValue(o.completedAt),o.completedTime)}</td>
     <td><span class="badge done">Concluída</span></td>
     <td><div class="actions">
       <button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver para edição</button>
