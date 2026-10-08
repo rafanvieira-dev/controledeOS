@@ -361,10 +361,48 @@ function renderActive(){
   document.getElementById('activeTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${progressHtml(o)}</td><td>${isLate(o)?'<span class="badge late">Atrasada</span>':'<span class="badge active">Ativa</span>'}</td><td><div class="actions"><button class="btn btn-blue" onclick="editOrder('${o.id}')">Editar</button><button class="btn btn-primary" onclick="completeOrder('${o.id}')">Concluir</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem ativa encontrada.</td></tr>';
 }
 function renderHistory(){
-  const q=document.getElementById('historySearch').value.toLowerCase(),op=document.getElementById('historyOperator').value,m=document.getElementById('historyMonth').value;
-  let rows=db.orders.filter(o=>o.status==='done').sort((a,b)=>((b.completedAt||'')+'T'+(b.completedTime||'00:00')).localeCompare((a.completedAt||'')+'T'+(a.completedTime||'00:00')));
-  if(q)rows=rows.filter(o=>(o.number+' '+o.title).toLowerCase().includes(q));if(op)rows=rows.filter(o=>o.operatorId===op);if(m)rows=rows.filter(o=>monthOf(o.completedAt)===m);
-  document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${fmtDateTime(o.completedAt,o.completedTime)}</td><td><span class="badge done">Concluída</span></td><td><div class="actions"><button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver para edição</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem concluída encontrada.</td></tr>';
+  const q=(document.getElementById('historySearch').value||'').trim().toLowerCase();
+  const op=(document.getElementById('historyOperator').value||'').trim();
+  const m=(document.getElementById('historyMonth').value||'').trim();
+
+  // Começa somente com ordens concluídas.
+  let rows=db.orders.filter(o=>o.status==='done');
+
+  // Filtro por operador: compara como texto para evitar problemas
+  // caso algum registro antigo tenha sido salvo com outro tipo de valor.
+  if(op){
+    rows=rows.filter(o=>String(o.operatorId??'')===String(op));
+  }
+
+  // Filtro por mês da data de conclusão.
+  if(m){
+    rows=rows.filter(o=>monthOf(o.completedAt)===m);
+  }
+
+  // Pesquisa por número ou título.
+  if(q){
+    rows=rows.filter(o=>(String(o.number??'')+' '+String(o.title??'')).toLowerCase().includes(q));
+  }
+
+  rows.sort((a,b)=>{
+    const da=(b.completedAt||'')+'T'+(b.completedTime||'00:00');
+    const dbb=(a.completedAt||'')+'T'+(a.completedTime||'00:00');
+    return da.localeCompare(dbb);
+  });
+
+  document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr>
+    <td><strong>${escapeHtml(o.number)}</strong></td>
+    <td>${escapeHtml(o.title)}</td>
+    <td>${escapeHtml(operatorName(o.operatorId))}</td>
+    <td>${fmtDateTime(o.entry,o.entryTime)}</td>
+    <td>${fmtDateTime(o.due,o.dueTime)}</td>
+    <td>${fmtDateTime(o.completedAt,o.completedTime)}</td>
+    <td><span class="badge done">Concluída</span></td>
+    <td><div class="actions">
+      <button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver para edição</button>
+      <button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button>
+    </div></td>
+  </tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem concluída encontrada.</td></tr>';
 }
 function renderOperators(){
   document.getElementById('operatorsList').innerHTML=db.operators.length?db.operators.map(o=>{
