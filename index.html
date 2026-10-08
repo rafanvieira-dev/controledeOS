@@ -60,6 +60,7 @@ tr:last-child td{border-bottom:0}
 .operator-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .operator-card{border:1px solid var(--border);border-radius:9px;padding:14px;background:#fff}
 .operator-card h3{margin:0 0 8px}.operator-meta{font-size:13px;color:var(--muted);line-height:1.6}
+.operator-card-simple{display:flex;flex-direction:column;gap:10px}.operator-card-simple h3{margin:0}.operator-status{min-height:24px}
 .modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;padding:20px;z-index:10}
 .modal.open{display:flex}.modal-box{background:#fff;border-radius:12px;max-width:760px;width:100%;padding:22px;max-height:90vh;overflow:auto}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.modal-head h2{margin:0}
@@ -206,6 +207,14 @@ tr:last-child td{border-bottom:0}
       </div>
       <div class="actions"><button class="btn btn-primary" type="submit">Salvar ordem</button><button class="btn btn-secondary" type="button" onclick="closeModal('orderModal')">Cancelar</button></div>
     </form>
+  </div>
+</div>
+
+<div id="operatorDetailsModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>Detalhes do operador</h2><button class="close" onclick="closeModal('operatorDetailsModal')">×</button></div>
+    <div id="operatorDetailsContent"></div>
+    <div class="actions"><button class="btn btn-secondary" type="button" onclick="closeModal('operatorDetailsModal')">Fechar</button></div>
   </div>
 </div>
 
@@ -399,7 +408,37 @@ function renderHistory(){
 }
 
 function renderOperators(){
-  document.getElementById('operatorsList').innerHTML=db.operators.length?db.operators.map(o=>{const active=db.orders.filter(x=>String(x.operatorId)===String(o.id)&&x.status==='active').length;const done=db.orders.filter(x=>String(x.operatorId)===String(o.id)&&x.status==='done').length;const last=lastCompleted(o.id);return `<div class="operator-card"><h3>${escapeHtml(o.name)}</h3><div class="operator-meta">${o.code?`Identificação: ${escapeHtml(o.code)}<br>`:''}Status: <strong>${o.active?'Ativo':'Inativo'}</strong><br>Ordens ativas: ${active}<br>Ordens concluídas: ${done}<br>Última conclusão: ${last?fmtDateTime(last.completedAt,last.completedTime):'-'}</div><div class="actions"><button class="btn btn-blue" onclick="editOperator('${o.id}')">Editar</button><button class="btn ${o.active?'btn-warning':'btn-primary'}" onclick="toggleOperator('${o.id}')">${o.active?'Desativar':'Ativar'}</button></div></div>`;}).join(''):'<div class="card empty">Nenhum operador cadastrado.</div>';
+  document.getElementById('operatorsList').innerHTML=db.operators.length?db.operators.map(o=>{
+    return `<div class="operator-card operator-card-simple">
+      <h3>${escapeHtml(o.name)}</h3>
+      <div class="operator-status"><span class="badge ${o.active?'active':'done'}">${o.active?'Ativo':'Inativo'}</span></div>
+      <div class="actions">
+        <button class="btn btn-blue" onclick="showOperatorDetails('${o.id}')">Detalhes</button>
+        <button class="btn btn-secondary" onclick="editOperator('${o.id}')">Editar</button>
+        <button class="btn ${o.active?'btn-warning':'btn-primary'}" onclick="toggleOperator('${o.id}')">${o.active?'Desativar':'Ativar'}</button>
+      </div>
+    </div>`;
+  }).join(''):'<div class="card empty">Nenhum operador cadastrado.</div>';
+}
+
+function showOperatorDetails(id){
+  const o=operatorById(id);
+  if(!o)return;
+  const active=db.orders.filter(x=>String(x.operatorId)===String(o.id)&&x.status==='active').length;
+  const done=db.orders.filter(x=>String(x.operatorId)===String(o.id)&&x.status==='done').length;
+  const last=lastCompleted(o.id);
+  document.getElementById('operatorDetailsContent').innerHTML=`
+    <div class="card" style="box-shadow:none;margin:0 0 14px">
+      <div class="form-grid">
+        <div class="field span2"><label>Nome</label><div><strong>${escapeHtml(o.name)}</strong></div></div>
+        <div class="field"><label>Matrícula / identificação</label><div>${escapeHtml(o.code||'Não informada')}</div></div>
+        <div class="field"><label>Status</label><div><span class="badge ${o.active?'active':'done'}">${o.active?'Ativo':'Inativo'}</span></div></div>
+        <div class="field"><label>Ordens ativas</label><div><strong>${active}</strong></div></div>
+        <div class="field"><label>Ordens concluídas</label><div><strong>${done}</strong></div></div>
+        <div class="field span2"><label>Última conclusão</label><div>${last?fmtDateTime(last.completedAt,last.completedTime):'Nenhuma conclusão registrada'}</div></div>
+      </div>
+    </div>`;
+  document.getElementById('operatorDetailsModal').classList.add('open');
 }
 
 function openOrderModal(id=null){
@@ -528,7 +567,7 @@ setInterval(()=>{if(document.getElementById('ordens').classList.contains('active
 // Como este arquivo usa type="module", essas funções precisam estar no window.
 Object.assign(window,{
   openOrderModal,closeModal,editOrder,completeOrder,deleteOrder,returnOrderToEdit,
-  openOperatorModal,editOperator,toggleOperator,renderActive,renderHistory,renderDashboard
+  openOperatorModal,editOperator,toggleOperator,showOperatorDetails,renderActive,renderHistory,renderDashboard
 });
 </script>
 
