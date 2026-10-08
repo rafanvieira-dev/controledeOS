@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Ordens de Serviço</title>
+<style>
+:root{
+  --green:#006837; --green2:#008f4c; --yellow:#f4c300;
+  --bg:#f2f4f7; --card:#fff; --text:#1f2937; --muted:#6b7280;
+  --border:#d9dee5; --danger:#c62828; --warning:#b7791f; --blue:#2563eb;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select{font:inherit}
+header{background:var(--green);color:#fff;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:0 2px 8px #0002}
+header h1{margin:0;font-size:21px}
+header small{opacity:.85}
+.container{max-width:1400px;margin:0 auto;padding:22px}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.nav button{border:0;background:#fff;color:var(--green);border:1px solid var(--border);padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:700}
+.nav button.active,.nav button:hover{background:var(--green);color:#fff}
+.page{display:none}.page.active{display:block}
+.grid{display:grid;gap:16px}
+.cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;box-shadow:0 1px 3px #0000000d}
+.card .label{color:var(--muted);font-size:13px}.metric{font-size:30px;font-weight:800;margin-top:7px}
+.section{margin-bottom:18px}
+.section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.section-title h2{font-size:18px;margin:0}
+.btn{border:0;border-radius:7px;padding:9px 13px;cursor:pointer;font-weight:700}
+.btn-primary{background:var(--green);color:#fff}.btn-primary:hover{background:var(--green2)}
+.btn-secondary{background:#eef1f4;color:#263238}.btn-danger{background:#fee2e2;color:#991b1b}.btn-warning{background:#fff4cc;color:#7a5700}.btn-blue{background:#dbeafe;color:#1d4ed8}
+.form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:13px;font-weight:700}
+.field input,.field select{border:1px solid var(--border);border-radius:7px;padding:10px;background:#fff}
+.span2{grid-column:span 2}.span4{grid-column:1/-1}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.table-wrap{overflow:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:850px}
+th,td{padding:11px 12px;border-bottom:1px solid #e8ebef;text-align:left;vertical-align:middle}
+th{background:#f7f8fa;font-size:12px;text-transform:uppercase;color:#58616d}
+tr:last-child td{border-bottom:0}
+.badge{display:inline-block;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:700}
+.badge.active{background:#dcfce7;color:#166534}.badge.done{background:#e5e7eb;color:#374151}.badge.late{background:#fee2e2;color:#991b1b}
+.badge.wait{background:#fef3c7;color:#92400e}
+.progress-wrap{min-width:145px}
+.progress-track{height:18px;background:#e5e7eb;border-radius:999px;overflow:hidden;position:relative;border:1px solid #d1d5db}
+.progress-fill{height:100%;border-radius:999px;transition:width .3s ease}
+.progress-fill.green{background:#22c55e}
+.progress-fill.yellow{background:#f4c300}
+.progress-fill.red{background:#ef4444}
+.progress-info{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;margin-bottom:4px}
+.progress-info .late-text{color:#b91c1c}
+.searchbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.searchbar input,.searchbar select{padding:10px;border:1px solid var(--border);border-radius:7px;background:#fff}
+.notice{padding:13px 15px;border-radius:8px;background:#ecfdf5;border:1px solid #bbf7d0;margin-bottom:14px}
+.notice strong{color:var(--green)}
+.empty{text-align:center;padding:35px;color:var(--muted)}
+.operator-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.operator-card{border:1px solid var(--border);border-radius:9px;padding:14px;background:#fff}
+.operator-card h3{margin:0 0 8px}.operator-meta{font-size:13px;color:var(--muted);line-height:1.6}
+.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;padding:20px;z-index:10}
+.modal.open{display:flex}.modal-box{background:#fff;border-radius:12px;max-width:760px;width:100%;padding:22px;max-height:90vh;overflow:auto}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.modal-head h2{margin:0}
+.close{border:0;background:#eee;border-radius:50%;width:34px;height:34px;cursor:pointer}
+.chart{display:flex;align-items:flex-end;gap:14px;height:220px;padding:15px 10px 0;border-bottom:1px solid var(--border);overflow-x:auto}
+.charts-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr);gap:16px}
+.chart-card{min-width:0}
+.pie-area{display:flex;align-items:center;justify-content:center;gap:22px;min-height:220px;padding:15px}
+.pie-chart{width:190px;height:190px;border-radius:50%;border:1px solid #d1d5db;box-shadow:inset 0 0 0 1px #ffffff88}
+.pie-legend{display:flex;flex-direction:column;gap:8px;max-height:205px;overflow:auto}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px}
+.legend-dot{width:12px;height:12px;border-radius:3px;flex:0 0 12px}
+@media(max-width:900px){.charts-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.pie-area{flex-direction:column}.pie-chart{width:170px;height:170px}}
+.bar-item{min-width:65px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px}
+.bar{width:42px;background:var(--green);border-radius:6px 6px 0 0;min-height:4px}
+.bar-label{font-size:11px;text-align:center;white-space:nowrap;max-width:75px;overflow:hidden;text-overflow:ellipsis}
+.bar-value{font-weight:700;font-size:12px}
+.toast{position:fixed;right:20px;bottom:20px;background:#222;color:#fff;padding:12px 16px;border-radius:8px;display:none;z-index:20}
+@media(max-width:900px){.cards,.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.operator-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){header{padding:15px}.container{padding:14px}.cards,.form-grid,.operator-grid{grid-template-columns:1fr}.span2{grid-column:auto}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Controle de Ordens de Serviço</h1>
+    <small>Distribuição, acompanhamento e histórico</small>
+  </div>
+  <strong id="currentDate"></strong>
+</header>
+
+<div class="container">
+  <nav class="nav">
+    <button class="active" data-page="dashboard">Dashboard</button>
+    <button data-page="ordens">Ordens Ativas</button>
+    <button data-page="historico">Histórico</button>
+    <button data-page="operadores">Operadores</button>
+  </nav>
+
+  <main>
+    <section id="dashboard" class="page active">
+      <div class="section-title"><h2>Dashboard</h2><div><input id="monthFilter" type="month"></div></div>
+      <div id="nextTurn" class="notice"></div>
+      <div class="grid cards section">
+        <div class="card"><div class="label">Concluídas no mês</div><div class="metric" id="mDone">0</div></div>
+        <div class="card"><div class="label">Ordens ativas</div><div class="metric" id="mActive">0</div></div>
+        <div class="card"><div class="label">Ordens atrasadas</div><div class="metric" id="mLate">0</div></div>
+        <div class="card"><div class="label">Operadores ativos</div><div class="metric" id="mOperators">0</div></div>
+      </div>
+      <div class="charts-grid section">
+        <div class="card chart-card">
+          <div class="section-title"><h2>Produção por operador</h2></div>
+          <div id="chart" class="chart"></div>
+        </div>
+        <div class="card chart-card">
+          <div class="section-title"><h2>Distribuição das concluídas</h2></div>
+          <div id="pieChart" class="pie-area"></div>
+        </div>
+      </div>
+      <div class="card section">
+        <div class="section-title"><h2>Resumo mensal</h2></div>
+        <div class="table-wrap"><table><thead><tr><th>Operador</th><th>Concluídas no mês</th><th>Última conclusão</th><th>Próximo da vez</th></tr></thead><tbody id="dashboardTable"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="ordens" class="page">
+      <div class="section-title"><h2>Ordens Ativas</h2><button class="btn btn-primary" onclick="openOrderModal()">+ Nova ordem</button></div>
+      <div id="turnNotice" class="notice"></div>
+      <div class="card">
+        <div class="searchbar">
+          <input id="activeSearch" placeholder="Pesquisar número ou título..." oninput="renderActive()">
+          <select id="activeOperator" onchange="renderActive()"><option value="">Todos os operadores</option></select>
+          <select id="activeStatus" onchange="renderActive()"><option value="">Todas as situações</option><option value="active">Ativas</option><option value="late">Atrasadas</option></select>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Nº Ordem</th><th>Título</th><th>Operador</th><th>Entrada</th><th>Conclusão prevista</th><th>Prazo</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="activeTable"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="historico" class="page">
+      <div class="section-title"><h2>Histórico de Ordens Concluídas</h2></div>
+      <div class="card">
+        <div class="searchbar">
+          <input id="historySearch" placeholder="Pesquisar número ou título..." oninput="renderHistory()">
+          <select id="historyOperator" onchange="renderHistory()"><option value="">Todos os operadores</option></select>
+          <input id="historyMonth" type="month" onchange="renderHistory()">
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Nº Ordem</th><th>Título</th><th>Operador</th><th>Entrada</th><th>Prevista</th><th>Conclusão</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="historyTable"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="operadores" class="page">
+      <div class="section-title"><h2>Operadores</h2><button class="btn btn-primary" onclick="openOperatorModal()">+ Novo operador</button></div>
+      <div id="operatorsList" class="operator-grid"></div>
+    </section>
+  </main>
+</div>
+
+<div id="orderModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="orderModalTitle">Nova ordem de serviço</h2><button class="close" onclick="closeModal('orderModal')">×</button></div>
+    <form id="orderForm">
+      <input type="hidden" id="orderId">
+      <div class="form-grid">
+        <div class="field"><label>Número da ordem *</label><input id="orderNumber" required></div>
+        <div class="field span2"><label>Título *</label><input id="orderTitle" required></div>
+        <div class="field"><label>Data de entrada *</label><input id="orderEntry" type="date" required></div>
+        <div class="field"><label>Hora de entrada *</label><input id="orderEntryTime" type="time" required></div>
+        <div class="field"><label>Data para conclusão *</label><input id="orderDue" type="date" required></div>
+        <div class="field"><label>Hora para conclusão *</label><input id="orderDueTime" type="time" required></div>
+        <div class="field span2"><label>Operador</label><select id="orderOperator"></select></div>
+      </div>
+      <div class="actions"><button class="btn btn-primary" type="submit">Salvar ordem</button><button class="btn btn-secondary" type="button" onclick="closeModal('orderModal')">Cancelar</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="operatorModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="operatorModalTitle">Novo operador</h2><button class="close" onclick="closeModal('operatorModal')">×</button></div>
+    <form id="operatorForm">
+      <input type="hidden" id="operatorId">
+      <div class="form-grid">
+        <div class="field span2"><label>Nome do operador *</label><input id="operatorName" required></div>
+        <div class="field"><label>Matrícula / identificação</label><input id="operatorCode"></div>
+        <div class="field"><label>Status</label><select id="operatorActive"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+      </div>
+      <div class="actions"><button class="btn btn-primary" type="submit">Salvar operador</button><button class="btn btn-secondary" type="button" onclick="closeModal('operatorModal')">Cancelar</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const KEY='controle_ordens_servico_v1';
+let db=JSON.parse(localStorage.getItem(KEY)||'{"operators":[],"orders":[]}');
+
+function save(){localStorage.setItem(KEY,JSON.stringify(db));}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function today(){return new Date().toISOString().slice(0,10);}
+function monthNow(){return today().slice(0,7);}
+function fmt(d){if(!d)return '-'; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`;}
+function fmtDateTime(d,t){
+  if(!d)return '-';
+  return `${fmt(d)}${t?' às '+t:''}`;
+}
+function monthOf(d){return d?d.slice(0,7):'';}
+function nowTime(){
+  const n=new Date();
+  return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
+function dateTimeValue(date,time){
+  if(!date)return null;
+  return new Date(`${date}T${time||'00:00'}:00`);
+}
+function progressData(o){
+  const start=dateTimeValue(o.entry,o.entryTime);
+  const end=dateTimeValue(o.due,o.dueTime);
+  if(!start||!end||end<=start)return {percent:0,label:'Prazo inválido',className:'red',late:true};
+  const now=new Date();
+  const total=end-start;
+  const elapsed=now-start;
+  let raw=(elapsed/total)*100;
+  const late=raw>=100;
+  const percent=Math.max(0,Math.min(100,raw));
+  const className=raw>=80?'red':raw>=50?'yellow':'green';
+  return {percent,label:`${Math.round(raw)}%`,className,late,raw};
+}
+function progressHtml(o){
+  const p=progressData(o);
+  const width=Math.max(0,Math.min(100,p.percent));
+  return `<div class="progress-wrap">
+    <div class="progress-info"><span>Prazo</span><span class="${p.late?'late-text':''}">${escapeHtml(p.label)}</span></div>
+    <div class="progress-track"><div class="progress-fill ${p.className}" style="width:${width}%"></div></div>
+  </div>`;
+}
+function activeOperators(){return db.operators.filter(o=>o.active);}
+function operatorName(id){return db.operators.find(o=>o.id===id)?.name||'—';}
+function lastCompleted(id){
+  const a=db.orders.filter(o=>o.operatorId===id&&o.status==='done'&&o.completedAt).sort((a,b)=>{
+    const da=(a.completedAt+'T'+(a.completedTime||'00:00'));
+    const dbb=(b.completedAt+'T'+(b.completedTime||'00:00'));
+    return dbb.localeCompare(da);
+  });
+  return a[0]||null;
+}
+function nextOperator(){
+  const ops=activeOperators();
+  if(!ops.length)return null;
+  const never=ops.filter(o=>!lastCompleted(o.id));
+  if(never.length)return never.sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))[0];
+  return ops.slice().sort((a,b)=>{
+    const la=lastCompleted(a.id), lb=lastCompleted(b.id);
+    const da=la?(la.completedAt+'T'+(la.completedTime||'00:00')):'9999-12-31T23:59';
+    const dbb=lb?(lb.completedAt+'T'+(lb.completedTime||'00:00')):'9999-12-31T23:59';
+    return da.localeCompare(dbb)||a.name.localeCompare(b.name,'pt-BR');
+  })[0];
+}
+function isLate(o){
+  if(o.status!=='active')return false;
+  const end=dateTimeValue(o.due,o.dueTime||'23:59');
+  return end ? new Date()>end : o.due<today();
+}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2200);}
+function populateOperatorSelects(){
+  const selects=['activeOperator','historyOperator'];
+  selects.forEach(id=>{
+    const s=document.getElementById(id), val=s.value;
+    s.innerHTML='<option value="">Todos os operadores</option>'+db.operators.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}${o.active?'':' (inativo)'}</option>`).join('');
+    s.value=val;
+  });
+  const s=document.getElementById('orderOperator');
+  s.innerHTML=activeOperators().map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+
+const operatorGreenPalette=[
+  '#006837', // verde institucional escuro
+  '#008F4C',
+  '#00A65A',
+  '#16A34A',
+  '#2E7D32',
+  '#43A047',
+  '#4CAF50',
+  '#66BB6A',
+  '#81C784',
+  '#9CCC65',
+  '#A8D600',
+  '#C0CA33',
+  '#00796B',
+  '#009688',
+  '#26A69A',
+  '#00695C',
+  '#00897B',
+  '#00ACC1',
+  '#1565C0',
+  '#1976D2'
+];
+
+function operatorColor(index){
+  return operatorGreenPalette[index % operatorGreenPalette.length];
+}
+
+function renderPieChart(counts){
+  const el=document.getElementById('pieChart');
+  if(!counts.length){
+    el.innerHTML='<div class="empty">Nenhuma ordem concluída no período.</div>';
+    return;
+  }
+
+  const total=counts.reduce((sum,x)=>sum+x.c,0);
+  if(!total){
+    el.innerHTML='<div class="empty">Nenhuma ordem concluída no período.</div>';
+    return;
+  }
+
+  let current=0;
+  const stops=counts.map((x,i)=>{
+    const start=current;
+    current+=(x.c/total)*360;
+    return `${operatorColor(i)} ${start}deg ${current}deg`;
+  }).join(',');
+
+  const legend=counts.map((x,i)=>{
+    const pct=((x.c/total)*100).toFixed(1).replace('.',',');
+    return `<div class="legend-item">
+      <span class="legend-dot" style="background:${operatorColor(i)}"></span>
+      <span><strong>${escapeHtml(x.o.name)}</strong> — ${x.c} (${pct}%)</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`<div class="pie-chart" title="Distribuição das ordens concluídas" style="background:conic-gradient(${stops})"></div><div class="pie-legend">${legend}</div>`;
+}
+
+function renderDashboard(){
+  const m=document.getElementById('monthFilter').value||monthNow();
+  const done=db.orders.filter(o=>o.status==='done'&&monthOf(o.completedAt)===m);
+  document.getElementById('mDone').textContent=done.length;
+  document.getElementById('mActive').textContent=db.orders.filter(o=>o.status==='active').length;
+  document.getElementById('mLate').textContent=db.orders.filter(isLate).length;
+  document.getElementById('mOperators').textContent=activeOperators().length;
+  const next=nextOperator();
+  document.getElementById('nextTurn').innerHTML=next?`<strong>Próxima vez:</strong> ${escapeHtml(next.name)} — o sistema indica este operador com base na data da última ordem concluída.`:'<strong>Cadastre pelo menos um operador ativo</strong> para iniciar a distribuição.';
+  document.getElementById('turnNotice').innerHTML=next?`<strong>De quem é a vez?</strong> ${escapeHtml(next.name)}`:'Cadastre um operador ativo para distribuir ordens.';
+  const counts=activeOperators().map(o=>({o,c:done.filter(x=>x.operatorId===o.id).length}));
+  const max=Math.max(1,...counts.map(x=>x.c));
+  document.getElementById('chart').innerHTML=counts.length?counts.map((x,i)=>`<div class="bar-item"><div class="bar-value">${x.c}</div><div class="bar" style="height:${Math.max(4,x.c/max*175)}px;background:${operatorColor(i)}"></div><div class="bar-label" title="${escapeHtml(x.o.name)}">${escapeHtml(x.o.name)}</div></div>`).join(''):'<div class="empty">Nenhum operador ativo.</div>';
+  renderPieChart(counts);
+  document.getElementById('dashboardTable').innerHTML=counts.length?counts.map(x=>{
+    const last=lastCompleted(x.o.id);
+    return `<tr><td><strong>${escapeHtml(x.o.name)}</strong></td><td>${x.c}</td><td>${last?fmtDateTime(last.completedAt,last.completedTime):'-'}</td><td>${next&&next.id===x.o.id?'SIM':'—'}</td></tr>`;
+  }).join(''):'<tr><td colspan="4" class="empty">Nenhum dado.</td></tr>';
+}
+function renderActive(){
+  const q=document.getElementById('activeSearch').value.toLowerCase(), op=document.getElementById('activeOperator').value, st=document.getElementById('activeStatus').value;
+  let rows=db.orders.filter(o=>o.status==='active');
+  if(q)rows=rows.filter(o=>(o.number+' '+o.title).toLowerCase().includes(q));
+  if(op)rows=rows.filter(o=>o.operatorId===op);
+  if(st==='late')rows=rows.filter(isLate);
+  document.getElementById('activeTable').innerHTML=rows.length?rows.map(o=>`<tr>
+    <td><strong>${escapeHtml(o.number)}</strong></td>
+    <td>${escapeHtml(o.title)}</td>
+    <td>${escapeHtml(operatorName(o.operatorId))}</td>
+    <td>${fmtDateTime(o.entry,o.entryTime)}</td>
+    <td>${fmtDateTime(o.due,o.dueTime)}</td>
+    <td>${progressHtml(o)}</td>
+    <td>${isLate(o)?'<span class="badge late">Atrasada</span>':'<span class="badge active">Ativa</span>'}</td>
+    <td><div class="actions"><button class="btn btn-blue" onclick="editOrder('${o.id}')">Editar</button><button class="btn btn-primary" onclick="completeOrder('${o.id}')">Concluir</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td>
+  </tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem ativa encontrada.</td></tr>';
+}
+function renderHistory(){
+  const q=document.getElementById('historySearch').value.toLowerCase(), op=document.getElementById('historyOperator').value, m=document.getElementById('historyMonth').value;
+  let rows=db.orders.filter(o=>o.status==='done').sort((a,b)=>{
+    const da=(b.completedAt||'')+'T'+(b.completedTime||'00:00');
+    const dbb=(a.completedAt||'')+'T'+(a.completedTime||'00:00');
+    return da.localeCompare(dbb);
+  });
+  if(q)rows=rows.filter(o=>(o.number+' '+o.title).toLowerCase().includes(q));
+  if(op)rows=rows.filter(o=>o.operatorId===op);
+  if(m)rows=rows.filter(o=>monthOf(o.completedAt)===m);
+  document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr>
+    <td><strong>${escapeHtml(o.number)}</strong></td>
+    <td>${escapeHtml(o.title)}</td>
+    <td>${escapeHtml(operatorName(o.operatorId))}</td>
+    <td>${fmtDateTime(o.entry,o.entryTime)}</td>
+    <td>${fmtDateTime(o.due,o.dueTime)}</td>
+    <td>${fmtDateTime(o.completedAt,o.completedTime)}</td>
+    <td><span class="badge done">Concluída</span></td>
+    <td><div class="actions"><button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver para edição</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td>
+  </tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem concluída encontrada.</td></tr>';
+}
+function renderOperators(){
+  document.getElementById('operatorsList').innerHTML=db.operators.length?db.operators.map(o=>{
+    const active=db.orders.filter(x=>x.operatorId===o.id&&x.status==='active').length;
+    const done=db.orders.filter(x=>x.operatorId===o.id&&x.status==='done').length;
+    const last=lastCompleted(o.id);
+    return `<div class="operator-card"><h3>${escapeHtml(o.name)}</h3><div class="operator-meta">${o.code?`Identificação: ${escapeHtml(o.code)}<br>`:''}Status: <strong>${o.active?'Ativo':'Inativo'}</strong><br>Ordens ativas: ${active}<br>Ordens concluídas: ${done}<br>Última conclusão: ${last?fmtDateTime(last.completedAt,last.completedTime):'-'}</div><div class="actions"><button class="btn btn-blue" onclick="editOperator('${o.id}')">Editar</button><button class="btn ${o.active?'btn-warning':'btn-primary'}" onclick="toggleOperator('${o.id}')">${o.active?'Desativar':'Ativar'}</button></div></div>`;
+  }).join(''):'<div class="card empty">Nenhum operador cadastrado.</div>';
+}
+function openOrderModal(id=null){
+  populateOperatorSelects();
+  document.getElementById('orderModalTitle').textContent=id?'Editar ordem de serviço':'Nova ordem de serviço';
+  document.getElementById('orderId').value=id||'';
+  if(id){
+    const o=db.orders.find(x=>x.id===id);
+    document.getElementById('orderNumber').value=o.number; document.getElementById('orderTitle').value=o.title;
+    document.getElementById('orderEntry').value=o.entry;
+    document.getElementById('orderEntryTime').value=o.entryTime||'08:00';
+    document.getElementById('orderDue').value=o.due;
+    document.getElementById('orderDueTime').value=o.dueTime||'18:00';
+    document.getElementById('orderOperator').value=o.operatorId;
+  }else{
+    document.getElementById('orderForm').reset();
+    document.getElementById('orderEntry').value=today();
+    document.getElementById('orderEntryTime').value=nowTime();
+    document.getElementById('orderDue').value=today();
+    document.getElementById('orderDueTime').value='18:00';
+    const n=nextOperator(); if(n)document.getElementById('orderOperator').value=n.id;
+  }
+  document.getElementById('orderModal').classList.add('open');
+}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function editOrder(id){openOrderModal(id)}
+function completeOrder(id){
+  const o=db.orders.find(x=>x.id===id); if(!o)return;
+  if(!confirm(`Concluir a ordem ${o.number}?`))return;
+  const n=new Date();
+  o.status='done';o.completedAt=today();o.completedTime=nowTime();
+  save();renderAll();toast(`Ordem concluída às ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}.`);
+}
+function returnOrderToEdit(id){
+  const o=db.orders.find(x=>x.id===id);
+  if(!o)return;
+  if(!confirm(`Devolver a ordem ${o.number} para edição? Ela sairá do histórico e voltará para as ordens ativas.`))return;
+
+  o.status='active';
+  o.completedAt=null;
+  o.completedTime=null;
+
+  save();
+  renderAll();
+  toast(`Ordem ${o.number} devolvida para edição.`);
+}
+
+function deleteOrder(id){
+  const o=db.orders.find(x=>x.id===id); if(!o)return;
+  if(!confirm(`Excluir a ordem ${o.number}? Esta ação não poderá ser desfeita.`))return;
+  db.orders=db.orders.filter(x=>x.id!==id);save();renderAll();toast('Ordem excluída.');
+}
+function openOperatorModal(id=null){
+  document.getElementById('operatorModalTitle').textContent=id?'Editar operador':'Novo operador';
+  document.getElementById('operatorId').value=id||'';
+  if(id){
+    const o=db.operators.find(x=>x.id===id);document.getElementById('operatorName').value=o.name;document.getElementById('operatorCode').value=o.code||'';document.getElementById('operatorActive').value=String(o.active);
+  }else document.getElementById('operatorForm').reset();
+  document.getElementById('operatorModal').classList.add('open');
+}
+function editOperator(id){openOperatorModal(id)}
+function toggleOperator(id){
+  const o=db.operators.find(x=>x.id===id); if(!o)return;
+  o.active=!o.active;save();renderAll();toast(o.active?'Operador ativado.':'Operador desativado.');
+}
+document.getElementById('orderForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const id=document.getElementById('orderId').value;
+  const data={
+    number:document.getElementById('orderNumber').value.trim(),
+    title:document.getElementById('orderTitle').value.trim(),
+    entry:document.getElementById('orderEntry').value,
+    entryTime:document.getElementById('orderEntryTime').value,
+    due:document.getElementById('orderDue').value,
+    dueTime:document.getElementById('orderDueTime').value,
+    operatorId:document.getElementById('orderOperator').value
+  };
+  if(!data.operatorId){alert('Cadastre e ative pelo menos um operador.');return}
+  if(id){
+    Object.assign(db.orders.find(x=>x.id===id),data);
+  }else{
+    db.orders.push({id:uid(),...data,status:'active',createdAt:today(),completedAt:null,completedTime:null});
+  }
+  save();closeModal('orderModal');renderAll();toast(id?'Ordem atualizada.':'Ordem cadastrada.');
+});
+document.getElementById('operatorForm').addEventListener('submit',e=>{
+  e.preventDefault();const id=document.getElementById('operatorId').value;
+  const data={name:document.getElementById('operatorName').value.trim(),code:document.getElementById('operatorCode').value.trim(),active:document.getElementById('operatorActive').value==='true'};
+  if(id)Object.assign(db.operators.find(x=>x.id===id),data);else db.operators.push({id:uid(),...data});
+  save();closeModal('operatorModal');renderAll();toast(id?'Operador atualizado.':'Operador cadastrado.');
+});
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(b.dataset.page).classList.add('active');
+}));
+document.getElementById('monthFilter').value=monthNow();
+document.getElementById('historyMonth').value=monthNow();
+document.getElementById('monthFilter').addEventListener('change',renderDashboard);
+function renderAll(){populateOperatorSelects();renderDashboard();renderActive();renderHistory();renderOperators();}
+document.getElementById('currentDate').textContent=fmt(today());
+renderAll();
+setInterval(()=>{
+  if(document.getElementById('ordens').classList.contains('active')){
+    renderActive();
+    renderDashboard();
+  }
+},60000);
+</script>
+</body>
+</html>
