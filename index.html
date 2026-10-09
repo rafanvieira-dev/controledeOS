@@ -22,7 +22,7 @@ header small{opacity:.85}
 .nav button.active,.nav button:hover{background:var(--green);color:#fff}
 .page{display:none}.page.active{display:block}
 .grid{display:grid;gap:16px}
-.cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+.cards{grid-template-columns:repeat(5,minmax(0,1fr))}
 .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;box-shadow:0 1px 3px #0000000d}
 .card .label{color:var(--muted);font-size:13px}.metric{font-size:30px;font-weight:800;margin-top:7px}
 .section{margin-bottom:18px}
@@ -136,7 +136,8 @@ tr:last-child td{border-bottom:0}
       <div class="section-title"><h2>Dashboard</h2><div><input id="monthFilter" type="month"></div></div>
       <div id="nextTurn" class="notice"></div>
       <div class="grid cards section">
-        <div class="card"><div class="label">Concluídas no mês</div><div class="metric" id="mDone">0</div></div>
+        <div class="card"><div class="label">Ordens atribuídas</div><div class="metric" id="mAssigned">0</div></div>
+        <div class="card"><div class="label">Concluídas</div><div class="metric" id="mDone">0</div></div>
         <div class="card"><div class="label">Ordens ativas</div><div class="metric" id="mActive">0</div></div>
         <div class="card"><div class="label">Ordens atrasadas</div><div class="metric" id="mLate">0</div></div>
         <div class="card"><div class="label">Operadores ativos</div><div class="metric" id="mOperators">0</div></div>
@@ -153,7 +154,7 @@ tr:last-child td{border-bottom:0}
       </div>
       <div class="card section">
         <div class="section-title"><h2>Resumo mensal</h2></div>
-        <div class="table-wrap"><table><thead><tr><th>Operador</th><th>Concluídas no mês</th><th>Última OS recebida</th><th>Próximo da vez</th></tr></thead><tbody id="dashboardTable"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Operador</th><th>OS atribuídas no mês</th><th>Concluídas</th><th>Última OS recebida</th><th>Próximo da vez</th></tr></thead><tbody id="dashboardTable"></tbody></table></div>
       </div>
     </section>
 
@@ -383,18 +384,19 @@ function renderPieChart(counts){
 function renderDashboard(){
   const m=document.getElementById('monthFilter').value||monthNow();
   const done=db.orders.filter(o=>o.status==='done'&&monthOf(o.completedAt)===m);
-  document.getElementById('mDone').textContent=done.length;
+  document.getElementById('mAssigned').textContent=db.orders.filter(o=>o.operatorId||o.operatorName).length;
+  document.getElementById('mDone').textContent=db.orders.filter(o=>o.status==='done').length;
   document.getElementById('mActive').textContent=db.orders.filter(o=>o.status==='active').length;
   document.getElementById('mLate').textContent=db.orders.filter(isLate).length;
   document.getElementById('mOperators').textContent=activeOperators().length;
   const next=nextOperator();
   document.getElementById('nextTurn').innerHTML=next?`<strong>Próxima vez:</strong> ${escapeHtml(next.name)} — o sistema indica este operador com base na data de entrada da última OS atribuída.`:'<strong>Cadastre pelo menos um operador ativo</strong> para iniciar a distribuição.';
   document.getElementById('turnNotice').innerHTML=next?`<strong>De quem é a vez?</strong> ${escapeHtml(next.name)}`:'Cadastre um operador ativo para distribuir ordens.';
-  const counts=activeOperators().map(o=>({o,c:done.filter(x=>operatorMatchesOrder(x,o.id)).length}));
+  const counts=activeOperators().map(o=>({o,c:done.filter(x=>operatorMatchesOrder(x,o.id)).length,assigned:db.orders.filter(x=>operatorMatchesOrder(x,o.id)&&monthOf(x.entry)===m).length}));
   const max=Math.max(1,...counts.map(x=>x.c));
   document.getElementById('chart').innerHTML=counts.length?counts.map((x,i)=>`<div class="bar-item"><div class="bar-value">${x.c}</div><div class="bar" style="height:${Math.max(4,x.c/max*175)}px;background:${operatorColor(i)}"></div><div class="bar-label" title="${escapeHtml(x.o.name)}">${escapeHtml(x.o.name)}</div></div>`).join(''):'<div class="empty">Nenhum operador ativo.</div>';
   renderPieChart(counts);
-  document.getElementById('dashboardTable').innerHTML=counts.length?counts.map(x=>{const last=lastCompleted(x.o.id);return `<tr><td><strong>${escapeHtml(x.o.name)}</strong></td><td>${x.c}</td><td>${last?fmtDateTime(last.completedAt,last.completedTime):'-'}</td><td>${next&&String(next.id)===String(x.o.id)?'SIM':'—'}</td></tr>`;}).join(''):'<tr><td colspan="4" class="empty">Nenhum dado.</td></tr>';
+  document.getElementById('dashboardTable').innerHTML=counts.length?counts.map(x=>{const last=lastAssigned(x.o.id);return `<tr><td><strong>${escapeHtml(x.o.name)}</strong></td><td>${x.assigned}</td><td>${x.c}</td><td>${last?fmtDateTime(last.entry,last.entryTime):'-'}</td><td>${next&&String(next.id)===String(x.o.id)?'SIM':'—'}</td></tr>`;}).join(''):'<tr><td colspan="5" class="empty">Nenhum dado.</td></tr>';
 }
 function renderActive(){
   const q=document.getElementById('activeSearch').value.toLowerCase(),op=document.getElementById('activeOperator').value,st=document.getElementById('activeStatus').value;
