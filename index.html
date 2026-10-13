@@ -307,7 +307,8 @@ function friendlyError(e){
   if(e?.code==='failed-precondition')return 'Firestore não está disponível.';
   return e?.message || 'Erro desconhecido.';
 }
-function activeOperators(){return db.operators.filter(o=>o.active&&!o.outOfQueue);}
+function activeOperators(){return db.operators.filter(o=>o.active);}
+function queueOperators(){return db.operators.filter(o=>o.active&&!o.outOfQueue);}
 function operatorById(id){return db.operators.find(o=>String(o.id)===String(id));}
 function operatorName(id, fallback='—'){return operatorById(id)?.name || fallback;}
 function operatorMatchesOrder(o, selectedId){
@@ -331,7 +332,7 @@ function lastAssigned(id){
     })[0]||null;
 }
 function nextOperator(){
-  const ops=activeOperators(); if(!ops.length)return null;
+  const ops=queueOperators(); if(!ops.length)return null;
   // A fila é definida pela DATA/HORA DE ENTRADA da última OS atribuída ao operador.
   // Assim, uma OS recebida por necessidade conta mesmo que ainda esteja ativa ou já tenha sido concluída.
   const never=ops.filter(o=>!lastAssigned(o.id));
