@@ -90,6 +90,142 @@ tr:last-child td{border-bottom:0}
 .login-error{display:none;background:#fee2e2;color:#991b1b;padding:10px;border-radius:7px;margin-bottom:12px;font-size:13px}
 .login-loading{text-align:center;color:#6b7280;font-size:13px;margin-top:10px}
 #appShell{display:none}
+
+/* Tema visual inspirado na referência enviada — preserva a lógica e os dados do sistema */
+:root{
+  --green:#006b43;
+  --green2:#008653;
+  --yellow:#e6b91e;
+  --bg:#edf4f7;
+  --card:#ffffff;
+  --text:#10213f;
+  --muted:#607086;
+  --border:#d8e4eb;
+  --danger:#c62828;
+  --warning:#a96b00;
+  --blue:#2463a6;
+}
+body{
+  background:linear-gradient(180deg,#eaf3f7 0%,#f4f8fa 100%);
+  color:var(--text);
+  font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;
+}
+header{
+  background:linear-gradient(110deg,#005536 0%,#006b43 55%,#00754b 100%);
+  color:#fff;padding:16px 28px;gap:18px;flex-wrap:wrap;
+  box-shadow:0 4px 18px #003d2b24;border-bottom:1px solid #ffffff20;
+}
+header h1{font-size:22px;font-weight:800;letter-spacing:-.35px}
+header small{display:inline-block;margin-top:4px;color:#e0f4e9;font-size:13px}
+.container{max-width:1700px;padding:26px 28px}
+.nav{gap:7px;margin-bottom:24px;align-items:center}
+.nav button{
+  color:#f3fff8;background:#08724b;border:1px solid #ffffff12;
+  padding:13px 17px;border-radius:10px;font-weight:750;
+  transition:background .18s,transform .18s,box-shadow .18s;
+}
+.nav button:hover{background:#12865b;color:#fff;transform:translateY(-1px)}
+.nav button.active{
+  background:#f5fff9;color:#005d3c;border-color:#d7f2e4;
+  box-shadow:0 3px 10px #002e201c;
+}
+.page h2,.section-title h2{color:#10213f;letter-spacing:-.3px}
+.page > h2{font-size:29px;font-weight:850;margin:0 0 18px}
+.grid{gap:17px}
+.cards{gap:17px}
+.card,.chart-card,.section,.operator-card,.modal-box{
+  background:#fff;border:1px solid #dce7ed;border-radius:13px;
+  box-shadow:0 5px 14px #143c5610,0 1px 3px #143c5609;
+}
+.card{
+  position:relative;overflow:hidden;padding:21px 20px;
+  border-left:4px solid #008653;min-height:105px;
+}
+.card:after{
+  content:"";position:absolute;right:-12px;bottom:-33px;width:112px;height:72px;
+  border-radius:70% 0 0 0;background:linear-gradient(135deg,#dff6eb88,#bdebd733);
+  pointer-events:none;
+}
+.card .label{color:#344b67;font-size:14px;font-weight:600}
+.metric{font-size:36px;line-height:1.05;color:#101f3a;font-weight:850;margin-top:9px}
+.section{padding:20px;margin-bottom:20px}
+.section-title{margin-bottom:15px}
+.section-title h2{font-size:21px;font-weight:800}
+.btn{border-radius:8px;padding:10px 15px;transition:filter .15s,transform .15s;box-shadow:0 1px 2px #0000000a}
+.btn:hover{filter:brightness(1.04);transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,#007449,#008b55);color:#fff}
+.btn-secondary{background:#edf3f6;color:#263d57;border:1px solid #d8e3e9}
+.btn-danger{background:#fff0ef;color:#a91d1d;border:1px solid #ffd4d0}
+.btn-warning{background:#fff7df;color:#805b00;border:1px solid #f2e1a7}
+.btn-blue{background:#e8f2ff;color:#1b5797;border:1px solid #cfe2fb}
+input,select,textarea{
+  color:#10213f;
+}
+.field label{color:#30445f;font-size:13px;font-weight:750}
+.field input,.field select,.field textarea,
+.searchbar input,.searchbar select{
+  border:1px solid #cfdde5;border-radius:8px;padding:11px 12px;
+  background:#fff;outline:none;transition:border .15s,box-shadow .15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus,
+.searchbar input:focus,.searchbar select:focus{
+  border-color:#159465;box-shadow:0 0 0 3px #1594651b;
+}
+.table-wrap{border:1px solid #d7e3e9;border-radius:11px;box-shadow:0 1px 3px #143c5608}
+table{border-collapse:separate;border-spacing:0}
+th{background:#edf3f6;color:#405772;font-weight:800}
+th,td{padding:12px 13px;border-bottom:1px solid #e4ebef}
+tbody tr:hover td{background:#f7fbf9}
+.badge{border-radius:7px;padding:5px 9px}
+.badge.active{background:#d8f6e7;color:#00653e}
+.badge.done{background:#eaf0f4;color:#43566a}
+.badge.late{background:#ffe3e1;color:#ad1d1d}
+.badge.wait{background:#fff1c9;color:#805b00}
+.notice{
+  padding:15px 18px;border-radius:11px;background:linear-gradient(100deg,#e1f8ec,#f0fbf6);
+  border:1px solid #9fe7c3;box-shadow:0 3px 9px #0086530c;margin-bottom:18px;color:#173752;
+}
+.notice strong{color:#006b43}
+.operator-grid{gap:15px}
+.operator-card{padding:17px;border-radius:12px}
+.operator-card h3{color:#10213f;font-size:17px}
+.operator-meta{color:#607086}
+.modal{backdrop-filter:blur(3px);background:#071b2b70}
+.modal-box{border-radius:16px;padding:25px;box-shadow:0 20px 60px #001e3540}
+.modal-head{padding-bottom:12px;border-bottom:1px solid #e4edf1}
+.close{background:#edf3f6;color:#31445c}
+.progress-wrap{min-width:155px}
+.progress-track{height:13px;background:#e8eef1;border:0;border-radius:999px}
+.progress-fill.green{background:linear-gradient(90deg,#10a66b,#007849)}
+.progress-fill.yellow{background:linear-gradient(90deg,#f4d35e,#dba800)}
+.progress-fill.red{background:linear-gradient(90deg,#ff8a80,#d92d20)}
+.progress-info{font-size:11px;color:#4d6075}
+.chart{border-bottom-color:#d6e2e9}
+.bar{background:linear-gradient(180deg,#0ca36a,#006b43);border-radius:6px 6px 0 0}
+.pie-chart{border:3px solid #fff;box-shadow:0 2px 9px #0d49301a}
+.legend-item{font-size:13px;color:#253d59}
+.toast{border-radius:10px;box-shadow:0 8px 25px #0003}
+.login-screen{background:radial-gradient(circle at 15% 15%,#0b8056 0,#00633f 38%,#003d2b 100%)}
+.login-card{border:1px solid #dcebe3;border-radius:18px;padding:32px;box-shadow:0 22px 60px #002c1c55}
+.login-card h2{color:#006b43;font-size:25px;font-weight:850}
+.login-card .btn-primary{padding:12px}
+@media(max-width:900px){
+  header{padding:15px 18px}
+  .container{padding:20px 16px}
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nav{overflow-x:auto;flex-wrap:nowrap;padding-bottom:5px}
+  .nav button{white-space:nowrap}
+}
+@media(max-width:600px){
+  header{align-items:flex-start}
+  header h1{font-size:19px}
+  .container{padding:15px 12px}
+  .cards,.form-grid,.operator-grid{grid-template-columns:1fr}
+  .card{min-height:88px}
+  .page > h2{font-size:25px}
+  .section{padding:14px}
+}
+
 </style>
 </head>
 <body>
