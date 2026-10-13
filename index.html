@@ -291,6 +291,33 @@ header > div:last-child{flex:0 0 auto}
 .section-title .ui-icon{color:#00764b;width:23px;height:23px}
 .btn .ui-icon{width:17px;height:17px}
 
+
+/* Alinhamento solicitado: navegação próxima ao nome, não centralizada na barra */
+header{
+  justify-content:flex-start !important;
+  gap:22px !important;
+}
+header > div:first-child{
+  flex:0 0 auto !important;
+  margin-right:0 !important;
+}
+header > .nav{
+  flex:0 1 auto !important;
+  justify-content:flex-start !important;
+  margin-left:0 !important;
+  gap:8px !important;
+}
+header > .nav button{
+  padding:11px 13px !important;
+}
+header > div:last-child{
+  margin-left:auto !important;
+}
+@media(max-width:1100px){
+  header{gap:14px !important}
+  header > .nav{order:3;flex-basis:100%;margin-left:0 !important}
+}
+
 </style>
 </head>
 <body>
