@@ -766,7 +766,7 @@ function renderActive(){
   let rows=db.orders.filter(o=>o.status==='active'||o.status==='pending');
   if(q)rows=rows.filter(o=>(String(o.number)+' '+String(o.title)).toLowerCase().includes(q));
   if(op)rows=rows.filter(o=>operatorMatchesOrder(o,op));
-  if(st==='late')rows=rows.filter(isLate);else if(st==='pending')rows=rows.filter(o=>o.status==='pending');else if(st==='active')rows=rows.filter(o=>o.status==='active');
+  if(st==='late')rows=rows.filter(o=>o.status==='active'&&isLate(o));else if(st==='pending')rows=rows.filter(o=>o.status==='pending');else if(st==='active')rows=rows.filter(o=>o.status==='active');
   document.getElementById('activeTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId,o.operatorName))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${progressHtml(o)}</td><td>${o.status==='pending'?'<span class="badge wait">Pendenciada</span>':isLate(o)?'<span class="badge late">Atrasada</span>':'<span class="badge active">Ativa</span>'}</td><td><div class="actions"><button class="btn btn-blue" onclick="editOrder('${o.id}')">Editar</button><button class="btn ${o.status==='pending'?'btn-warning':'btn-secondary'}" onclick="togglePendingOrder('${o.id}')">${o.status==='pending'?'Retomar':'Pendenciar'}</button><button class="btn btn-primary" onclick="completeOrder('${o.id}')">Concluir</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem ativa encontrada.</td></tr>';
 }
 
@@ -857,13 +857,15 @@ function editOrder(id){openOrderModal(id);}
 async function togglePendingOrder(id){
   const o=db.orders.find(x=>String(x.id)===String(id));
   if(!o||!['active','pending'].includes(o.status))return;
-  if(o.status==='active'){
-    if(!confirm(`Pendenciar a ordem ${o.number}? O prazo ficará congelado até você retomar a OS.`))return;
+  const wasPending=o.status==='pending';
+  if(!confirm(wasPending
+    ? `Retomar a ordem ${o.number}? A contagem do prazo continuará de onde parou.`
+    : `Pendenciar a ordem ${o.number}? O prazo ficará congelado até você retomar a OS.`))return;
+  if(!wasPending){
     o.status='pending';
     o.pausedAt=new Date().toISOString();
-    toast(`Ordem ${o.number} pendenciada. O prazo está congelado.`);
+    o.pendingSince=today();
   }else{
-    if(!confirm(`Retomar a ordem ${o.number}? A contagem do prazo continuará de onde parou.`))return;
     const data=businessDeadlineData(o,'23:59');
     if(o.pausedAt&&data){
       const pauseStart=new Date(o.pausedAt);
@@ -871,10 +873,17 @@ async function togglePendingOrder(id){
       o.pausedBusinessMs=Number(o.pausedBusinessMs||0)+businessElapsedMs(pauseStart,pauseEnd,data.holidays);
     }
     o.pausedAt=null;
+    o.pendingSince=null;
     o.status='active';
-    toast(`Ordem ${o.number} retomada. O prazo voltou a contar.`);
   }
-  await save();renderAll();
+  try{
+    await save();
+    renderAll();
+    toast(wasPending?`Ordem ${o.number} retomada. O prazo voltou a contar.`:`Ordem ${o.number} pendenciada. O prazo está congelado.`);
+  }catch(err){
+    console.error('Falha ao salvar alteração de pendência:',err);
+    toast('Não foi possível salvar a situação. Verifique a conexão e as permissões do Firebase.');
+  }
 }
 async function completeOrder(id){
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
