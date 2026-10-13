@@ -359,6 +359,13 @@ header > div:last-child{
   #ordens .searchbar input,#ordens .searchbar select,#historico .searchbar input,#historico .searchbar select{min-width:100%;flex-basis:100%}
 }
 
+
+#ordens .badge.wait{background:#fff0c2;color:#805b00}
+#ordens .progress-info{display:flex;justify-content:space-between;gap:6px}
+#ordens tr:has(.badge.wait){background:#fffdf5}
+#ordens .actions{gap:5px;flex-wrap:wrap}
+#ordens .actions .btn{padding:7px 9px;font-size:12px}
+
 </style>
 </head>
 <body>
@@ -435,7 +442,7 @@ header > div:last-child{
         <div class="searchbar">
           <input id="activeSearch" placeholder="Pesquisar número ou título..." oninput="renderActive()">
           <select id="activeOperator" onchange="renderActive()"><option value="">Todos os operadores</option></select>
-          <select id="activeStatus" onchange="renderActive()"><option value="">Todas as situações</option><option value="active">Ativas</option><option value="late">Atrasadas</option></select>
+          <select id="activeStatus" onchange="renderActive()"><option value="">Todas as situações</option><option value="active">Ativas</option><option value="pending">Pendenciadas</option><option value="late">Atrasadas</option></select>
         </div>
         <div class="table-wrap"><table><thead><tr><th>Nº Ordem</th><th>Título</th><th>Operador</th><th>Entrada</th><th>Conclusão prevista</th><th>Prazo</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="activeTable"></tbody></table></div>
       </div>
@@ -696,10 +703,12 @@ function businessDeadlineData(o,defaultDueTime='00:00'){
 }
 function progressData(o){
   const data=businessDeadlineData(o);
-  if(!data||data.total<=0)return {percent:0,label:'Prazo inválido',className:'red',late:true};
-  const elapsed=businessElapsedMs(data.start,new Date(),data.holidays);
+  if(!data||data.total<=0)return {percent:0,label:'Prazo inválido',className:'red',late:false};
+  const now=new Date();
+  const effectiveNow=o.status==='pending'&&o.pausedAt?new Date(o.pausedAt):now;
+  const elapsed=Math.max(0,businessElapsedMs(data.start,effectiveNow,data.holidays)-Number(o.pausedBusinessMs||0));
   const raw=(elapsed/data.total)*100,late=raw>=100,percent=Math.max(0,Math.min(100,raw));
-  return {percent,label:`${Math.round(raw)}%`,className:raw>=80?'red':raw>=50?'yellow':'green',late,raw};
+  return {percent,label:o.status==='pending'?`${Math.round(percent)}% · Congelado`:`${Math.round(raw)}%`,className:raw>=80?'red':raw>=50?'yellow':'green',late,raw};
 }
 function progressHtml(o){
   const p=progressData(o),width=Math.max(0,Math.min(100,p.percent));
@@ -707,9 +716,8 @@ function progressHtml(o){
 }
 function isLate(o){
   if(o.status!=='active')return false;
-  const data=businessDeadlineData(o,'23:59');
-  if(!data||data.total<=0)return false;
-  return businessElapsedMs(data.start,new Date(),data.holidays)>=data.total;
+  const p=progressData(o);
+  return !!p.late;
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>t.style.display='none',2600);}
 
@@ -755,11 +763,11 @@ function renderDashboard(){
 }
 function renderActive(){
   const q=document.getElementById('activeSearch').value.toLowerCase(),op=document.getElementById('activeOperator').value,st=document.getElementById('activeStatus').value;
-  let rows=db.orders.filter(o=>o.status==='active');
+  let rows=db.orders.filter(o=>o.status==='active'||o.status==='pending');
   if(q)rows=rows.filter(o=>(String(o.number)+' '+String(o.title)).toLowerCase().includes(q));
   if(op)rows=rows.filter(o=>operatorMatchesOrder(o,op));
-  if(st==='late')rows=rows.filter(isLate);
-  document.getElementById('activeTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId,o.operatorName))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${progressHtml(o)}</td><td>${isLate(o)?'<span class="badge late">Atrasada</span>':'<span class="badge active">Ativa</span>'}</td><td><div class="actions"><button class="btn btn-blue" onclick="editOrder('${o.id}')">Editar</button><button class="btn btn-primary" onclick="completeOrder('${o.id}')">Concluir</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem ativa encontrada.</td></tr>';
+  if(st==='late')rows=rows.filter(isLate);else if(st==='pending')rows=rows.filter(o=>o.status==='pending');else if(st==='active')rows=rows.filter(o=>o.status==='active');
+  document.getElementById('activeTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId,o.operatorName))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${progressHtml(o)}</td><td>${o.status==='pending'?'<span class="badge wait">Pendenciada</span>':isLate(o)?'<span class="badge late">Atrasada</span>':'<span class="badge active">Ativa</span>'}</td><td><div class="actions"><button class="btn btn-blue" onclick="editOrder('${o.id}')">Editar</button><button class="btn ${o.status==='pending'?'btn-warning':'btn-secondary'}" onclick="togglePendingOrder('${o.id}')">${o.status==='pending'?'Retomar':'Pendenciar'}</button><button class="btn btn-primary" onclick="completeOrder('${o.id}')">Concluir</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem ativa encontrada.</td></tr>';
 }
 
 function renderHistory(){
@@ -846,6 +854,28 @@ function openOrderModal(id=null){
 }
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function editOrder(id){openOrderModal(id);}
+async function togglePendingOrder(id){
+  const o=db.orders.find(x=>String(x.id)===String(id));
+  if(!o||!['active','pending'].includes(o.status))return;
+  if(o.status==='active'){
+    if(!confirm(`Pendenciar a ordem ${o.number}? O prazo ficará congelado até você retomar a OS.`))return;
+    o.status='pending';
+    o.pausedAt=new Date().toISOString();
+    toast(`Ordem ${o.number} pendenciada. O prazo está congelado.`);
+  }else{
+    if(!confirm(`Retomar a ordem ${o.number}? A contagem do prazo continuará de onde parou.`))return;
+    const data=businessDeadlineData(o,'23:59');
+    if(o.pausedAt&&data){
+      const pauseStart=new Date(o.pausedAt);
+      const pauseEnd=new Date();
+      o.pausedBusinessMs=Number(o.pausedBusinessMs||0)+businessElapsedMs(pauseStart,pauseEnd,data.holidays);
+    }
+    o.pausedAt=null;
+    o.status='active';
+    toast(`Ordem ${o.number} retomada. O prazo voltou a contar.`);
+  }
+  await save();renderAll();
+}
 async function completeOrder(id){
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
   if(!confirm(`Concluir a ordem ${o.number}?`))return;
@@ -856,7 +886,7 @@ async function completeOrder(id){
 async function returnOrderToEdit(id){
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
   if(!confirm(`Devolver a ordem ${o.number} para edição? Ela sairá do histórico e voltará para as ordens ativas.`))return;
-  o.status='active';o.completedAt=null;o.completedTime=null;
+  o.status='active';o.completedAt=null;o.completedTime=null;o.pausedAt=null;o.pausedBusinessMs=0;
   await save();renderAll();toast(`Ordem ${o.number} devolvida para edição.`);
 }
 async function deleteOrder(id){
