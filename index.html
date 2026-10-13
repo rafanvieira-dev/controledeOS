@@ -228,6 +228,7 @@ tr:last-child td{border-bottom:0}
         <div class="field span2"><label>Nome do operador *</label><input id="operatorName" required></div>
         <div class="field"><label>Matrícula / identificação</label><input id="operatorCode"></div>
         <div class="field"><label>Status</label><select id="operatorActive"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+        <div class="field span4"><label style="display:flex;align-items:center;gap:8px;font-weight:700"><input id="operatorOutOfQueue" type="checkbox" style="width:auto"> Fora da fila de distribuição (somente casos especiais)</label></div>
       </div>
       <div class="actions"><button class="btn btn-primary" type="submit">Salvar operador</button><button class="btn btn-secondary" type="button" onclick="closeModal('operatorModal')">Cancelar</button></div>
     </form>
@@ -306,7 +307,7 @@ function friendlyError(e){
   if(e?.code==='failed-precondition')return 'Firestore não está disponível.';
   return e?.message || 'Erro desconhecido.';
 }
-function activeOperators(){return db.operators.filter(o=>o.active);}
+function activeOperators(){return db.operators.filter(o=>o.active&&!o.outOfQueue);}
 function operatorById(id){return db.operators.find(o=>String(o.id)===String(id));}
 function operatorName(id, fallback='—'){return operatorById(id)?.name || fallback;}
 function operatorMatchesOrder(o, selectedId){
@@ -365,7 +366,7 @@ function populateOperatorSelects(){
     if([...s.options].some(o=>o.value===val))s.value=val;
   });
   const s=document.getElementById('orderOperator'),current=s.value;
-  s.innerHTML=activeOperators().map(o=>`<option value="${escapeHtml(o.id)}">${escapeHtml(o.name)}</option>`).join('');
+  s.innerHTML=db.operators.filter(o=>o.active).map(o=>`<option value="${escapeHtml(o.id)}">${escapeHtml(o.name)}${o.outOfQueue?' — fora da fila (casos especiais)':''}</option>`).join('');
   if([...s.options].some(o=>o.value===current))s.value=current;
 }
 
@@ -427,7 +428,7 @@ function renderOperators(){
   document.getElementById('operatorsList').innerHTML=db.operators.length?db.operators.map(o=>{
     return `<div class="operator-card operator-card-simple">
       <h3>${escapeHtml(o.name)}</h3>
-      <div class="operator-status"><span class="badge ${o.active?'active':'done'}">${o.active?'Ativo':'Inativo'}</span></div>
+      <div class="operator-status"><span class="badge ${o.active?'active':'done'}">${o.active?'Ativo':'Inativo'}</span> ${o.outOfQueue?'<span class="badge wait">Fora da fila</span>':''}</div>
       <div class="actions">
         <button class="btn btn-blue" onclick="showOperatorDetails('${o.id}')">Detalhes</button>
         <button class="btn btn-secondary" onclick="editOperator('${o.id}')">Editar</button>
@@ -448,7 +449,7 @@ function showOperatorDetails(id){
       <div class="form-grid">
         <div class="field span2"><label>Nome</label><div><strong>${escapeHtml(o.name)}</strong></div></div>
         <div class="field"><label>Matrícula / identificação</label><div>${escapeHtml(o.code||'Não informada')}</div></div>
-        <div class="field"><label>Status</label><div><span class="badge ${o.active?'active':'done'}">${o.active?'Ativo':'Inativo'}</span></div></div>
+        <div class="field"><label>Status</label><div><span class="badge ${o.active?'active':'done'}">${o.active?'Ativo':'Inativo'}</span> ${o.outOfQueue?'<span class="badge wait">Fora da fila</span>':'<span class="badge active">Participa da fila</span>'}</div></div>
         <div class="field"><label>Ordens ativas</label><div><strong>${active}</strong></div></div>
         <div class="field"><label>Ordens concluídas</label><div><strong>${done}</strong></div></div>
         <div class="field span2"><label>Última conclusão</label><div>${last?fmtDateTime(last.completedAt,last.completedTime):'Nenhuma conclusão registrada'}</div></div>
@@ -495,8 +496,8 @@ async function deleteOrder(id){
 }
 function openOperatorModal(id=null){
   document.getElementById('operatorModalTitle').textContent=id?'Editar operador':'Novo operador';document.getElementById('operatorId').value=id||'';
-  if(id){const o=operatorById(id);if(!o)return;document.getElementById('operatorName').value=o.name;document.getElementById('operatorCode').value=o.code||'';document.getElementById('operatorActive').value=String(o.active);}
-  else document.getElementById('operatorForm').reset();
+  if(id){const o=operatorById(id);if(!o)return;document.getElementById('operatorName').value=o.name;document.getElementById('operatorCode').value=o.code||'';document.getElementById('operatorActive').value=String(o.active);document.getElementById('operatorOutOfQueue').checked=!!o.outOfQueue;}
+  else {document.getElementById('operatorForm').reset();document.getElementById('operatorOutOfQueue').checked=false;}
   document.getElementById('operatorModal').classList.add('open');
 }
 function editOperator(id){openOperatorModal(id);}
@@ -515,7 +516,7 @@ document.getElementById('orderForm').addEventListener('submit',async e=>{
 
 document.getElementById('operatorForm').addEventListener('submit',async e=>{
   e.preventDefault();const id=document.getElementById('operatorId').value;
-  const data={name:document.getElementById('operatorName').value.trim(),code:document.getElementById('operatorCode').value.trim(),active:document.getElementById('operatorActive').value==='true'};
+  const data={name:document.getElementById('operatorName').value.trim(),code:document.getElementById('operatorCode').value.trim(),active:document.getElementById('operatorActive').value==='true',outOfQueue:document.getElementById('operatorOutOfQueue').checked};
   if(id){const target=operatorById(id);if(target)Object.assign(target,data);}
   else db.operators.push({id:uid(),...data});
   // Atualiza o nome gravado nas ordens desse operador para manter compatibilidade.
