@@ -226,6 +226,71 @@ tbody tr:hover td{background:#f7fbf9}
   .section{padding:14px}
 }
 
+
+/* Navegação integrada à barra superior, junto ao nome do sistema */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:18px;min-height:82px;
+}
+header .brand, header .logo, header .header-brand{
+  flex:0 0 auto;
+}
+header .nav{
+  display:flex;align-items:center;justify-content:center;
+  flex:1 1 auto;min-width:0;margin:0;padding:0;
+}
+header .nav button{margin:0;white-space:nowrap}
+header .header-actions, header .top-actions, header .user-actions{
+  flex:0 0 auto;display:flex;align-items:center;gap:10px;
+}
+/* Caso a navegação seja irmã do cabeçalho de marca, mantém todos na mesma linha */
+header > nav{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;margin:0}
+header > nav button{white-space:nowrap}
+@media(max-width:1050px){
+  header{flex-wrap:wrap;gap:12px}
+  header .nav,header > nav{order:3;flex-basis:100%;justify-content:flex-start;overflow-x:auto}
+}
+@media(max-width:600px){
+  header{align-items:flex-start}
+  header .nav,header > nav{flex-basis:100%;max-width:100%}
+}
+
+
+/* Ajuste estrutural: menu integrado à mesma barra do nome, data e botão Sair */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:18px;min-height:82px;flex-wrap:nowrap;
+}
+header > div:first-child{flex:0 1 auto;min-width:220px}
+header > .nav{
+  display:flex;align-items:center;justify-content:center;
+  flex:1 1 auto;min-width:0;margin:0;padding:0;gap:7px;
+}
+header > .nav button{white-space:nowrap;margin:0;padding:13px 15px}
+header > div:last-child{flex:0 0 auto}
+.container > .nav{display:none}
+@media(max-width:1100px){
+  header{flex-wrap:wrap}
+  header > .nav{order:3;flex:1 1 100%;justify-content:flex-start;overflow-x:auto}
+}
+@media(max-width:600px){
+  header{gap:12px;padding:14px}
+  header > div:first-child{min-width:0}
+  header > div:last-child{margin-left:auto}
+  header > .nav{max-width:100%}
+}
+
+
+/* Ícones vetoriais profissionais, sem dependência de bibliotecas externas */
+.ui-icon{width:19px;height:19px;display:inline-block;vertical-align:middle;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nav button,.btn{align-items:center;gap:8px}
+.nav button .ui-icon{width:18px;height:18px}
+.metric-icon{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:13px;background:#d8f7e8;color:#00764b;box-shadow:0 3px 10px #00865318}
+.metric-icon .ui-icon{width:25px;height:25px;stroke-width:2.4}
+.metric-icon.danger{background:#ffe1df;color:#c52222}
+.section-title .ui-icon{color:#00764b;width:23px;height:23px}
+.btn .ui-icon{width:17px;height:17px}
+
 </style>
 </head>
 <body>
@@ -256,16 +321,17 @@ tbody tr:hover td{background:#f7fbf9}
     <h1>Controle de Ordens de Serviço</h1>
     <small>Distribuição, acompanhamento e histórico</small>
   </div>
-  <div style="display:flex;align-items:center;gap:12px"><strong id="currentDate"></strong><button id="logoutBtn" class="btn btn-secondary" type="button">Sair</button></div>
+<nav class="nav">
+    <button class="active" data-page="dashboard"><span class="svg-icon-placeholder" data-svg-icon="dashboard"></span>Dashboard</button>
+    <button data-page="ordens"><span class="svg-icon-placeholder" data-svg-icon="file"></span>Ordens Ativas</button>
+    <button data-page="historico"><span class="svg-icon-placeholder" data-svg-icon="clock"></span>Histórico</button>
+    <button data-page="operadores"><span class="svg-icon-placeholder" data-svg-icon="users"></span>Operadores</button>
+  </nav>
+  <div style="display:flex;align-items:center;gap:12px"><strong id="currentDate"></strong><button id="logoutBtn" class="btn btn-secondary" type="button"><span class="svg-icon-placeholder" data-svg-icon="logout"></span>Sair</button></div>
 </header>
 
 <div class="container">
-  <nav class="nav">
-    <button class="active" data-page="dashboard">Dashboard</button>
-    <button data-page="ordens">Ordens Ativas</button>
-    <button data-page="historico">Histórico</button>
-    <button data-page="operadores">Operadores</button>
-  </nav>
+  
 
   <main>
     <section id="dashboard" class="page active">
@@ -375,6 +441,27 @@ tbody tr:hover td{background:#f7fbf9}
 
 
 <script type="module">
+
+/* Ícones SVG locais: não requerem CDN nem bibliotecas externas */
+const UI_ICON_PATHS = {
+  home:'<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/>',
+  dashboard:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  check:'<path d="m5 12 4 4L19 6"/>',
+  play:'<polygon points="5 3 19 12 5 21 5 3"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>',
+  alertclock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+};
+function uiIcon(name){
+  const path = UI_ICON_PATHS[name] || UI_ICON_PATHS.file;
+  return '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">' + path + '</svg>';
+}
+
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
@@ -788,5 +875,30 @@ Object.assign(window,{
 </script>
 
 </div>
+<script>
+
+(function(){
+  var paths = {
+    home:'<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/>',
+    dashboard:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+    file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    users:'<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+    logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>'
+  };
+  function renderLocalIcons(){
+    document.querySelectorAll('[data-svg-icon]').forEach(function(el){
+      var name = el.getAttribute('data-svg-icon');
+      el.outerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">' + (paths[name] || paths.file) + '</svg>';
+    });
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', renderLocalIcons, {once:true});
+  } else {
+    renderLocalIcons();
+  }
+})();
+
+</script>
 </body>
 </html>
