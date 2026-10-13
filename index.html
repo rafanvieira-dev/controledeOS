@@ -318,6 +318,47 @@ header > div:last-child{
   header > .nav{order:3;flex-basis:100%;margin-left:0 !important}
 }
 
+
+/* Refinamento das páginas internas */
+#ordens .card,#historico .card{padding:20px}
+#ordens .searchbar,#historico .searchbar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  padding:14px;background:#f5f9fb;border:1px solid #e0e9ee;border-radius:10px;margin-bottom:15px
+}
+#ordens .searchbar input,#ordens .searchbar select,
+#historico .searchbar input,#historico .searchbar select{min-width:180px;flex:1}
+#ordens .table-wrap,#historico .table-wrap{overflow-x:auto}
+#ordens table,#historico table{min-width:980px}
+#historico .history-results-empty{
+  padding:28px 16px;text-align:center;color:#607086;background:#f8fbfc;border:1px dashed #cbdbe3;border-radius:10px
+}
+#historico .history-table-wrap[hidden]{display:none!important}
+#historico .actions{gap:6px;flex-wrap:nowrap}
+#historico .actions .btn{font-size:12px;padding:6px 9px;line-height:1.2;white-space:nowrap}
+#operadores .operator-grid{display:block;overflow:hidden;border:1px solid #d9e5eb;border-radius:12px;background:#fff}
+#operadores .operator-row{
+  display:grid;grid-template-columns:minmax(220px,1fr) 110px minmax(250px,auto);
+  align-items:center;gap:16px;padding:13px 17px;border-bottom:1px solid #e5edf1;
+}
+#operadores .operator-row:last-child{border-bottom:0}
+#operadores .operator-row:nth-child(even){background:#f8fbfc}
+#operadores .operator-row:hover{background:#eef8f3}
+#operadores .operator-name{font-weight:800;color:#132542;min-width:0;overflow-wrap:anywhere}
+#operadores .operator-status{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#operadores .operator-row .actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+#operadores .operator-row .btn{padding:7px 10px;font-size:12px}
+#operadores .operator-list-head{
+  display:grid;grid-template-columns:minmax(220px,1fr) 110px minmax(250px,auto);
+  gap:16px;padding:10px 17px;background:#edf3f6;color:#405772;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em
+}
+#operadores .operator-list-empty{padding:24px;color:#607086;text-align:center}
+@media(max-width:760px){
+  #operadores .operator-list-head{display:none}
+  #operadores .operator-row{grid-template-columns:1fr;gap:9px}
+  #operadores .operator-row .actions{justify-content:flex-start}
+  #ordens .searchbar input,#ordens .searchbar select,#historico .searchbar input,#historico .searchbar select{min-width:100%;flex-basis:100%}
+}
+
 </style>
 </head>
 <body>
@@ -410,7 +451,7 @@ header > div:last-child{
           <button id="searchHistoryBtn" class="btn btn-primary" type="button">🔎 Pesquisar</button>
           <button id="clearHistoryBtn" class="btn btn-secondary" type="button">Limpar filtros</button>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Nº Ordem</th><th>Título</th><th>Operador</th><th>Entrada</th><th>Prevista</th><th>Conclusão</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="historyTable"></tbody></table></div>
+        <div id="historyPrompt" class="history-results-empty">Use a pesquisa por número, título, operador ou mês e clique em <strong>Pesquisar</strong> para exibir os resultados.</div><div id="historyResultsWrap" class="table-wrap history-table-wrap" hidden><table><thead><tr><th>Nº Ordem</th><th>Título</th><th>Operador</th><th>Entrada</th><th>Prevista</th><th>Conclusão</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="historyTable"></tbody></table></div>
       </div>
     </section>
 
@@ -725,6 +766,17 @@ function renderHistory(){
   const q=String(document.getElementById('historySearch').value||'').trim().toLowerCase();
   const op=document.getElementById('historyOperator').value;
   const m=document.getElementById('historyMonth').value;
+  const searched=Boolean(q||op||m||window.historySearchSubmitted===true);
+  const prompt=document.getElementById('historyPrompt');
+  const wrap=document.getElementById('historyResultsWrap');
+  if(!searched){
+    wrap.hidden=true;
+    prompt.hidden=false;
+    document.getElementById('historyTable').innerHTML='';
+    return;
+  }
+  wrap.hidden=false;
+  prompt.hidden=true;
   let rows=db.orders.filter(o=>o.status==='done');
   if(q)rows=rows.filter(o=>(String(o.number||'')+' '+String(o.title||'')).toLowerCase().includes(q));
   if(op)rows=rows.filter(o=>operatorMatchesOrder(o,op));
@@ -734,21 +786,26 @@ function renderHistory(){
     const dbb=normalizeDate(b.entry)+'T'+(b.entryTime||'00:00');
     return dbb.localeCompare(da);
   });
-  document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId,o.operatorName))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${fmtDateTime(o.completedAt,o.completedTime)}</td><td><span class="badge done">Concluída</span></td><td><div class="actions"><button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver para edição</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem concluída encontrada.</td></tr>';
+  document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId,o.operatorName))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${fmtDateTime(o.completedAt,o.completedTime)}</td><td><span class="badge done">Concluída</span></td><td><div class="actions"><button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem concluída encontrada com esses filtros.</td></tr>';
 }
 
 function renderOperators(){
-  document.getElementById('operatorsList').innerHTML=db.operators.length?db.operators.map(o=>{
-    return `<div class="operator-card operator-card-simple">
-      <h3>${escapeHtml(o.name)}</h3>
-      <div class="operator-status"><span class="badge ${o.active?'active':'done'}">${o.active?'Ativo':'Inativo'}</span> ${o.outOfQueue?'<span class="badge wait">Fora da fila</span>':''}</div>
+  const host=document.getElementById('operatorsList');
+  if(!db.operators.length){
+    host.innerHTML='<div class="operator-list-empty">Nenhum operador cadastrado.</div>';
+    return;
+  }
+  host.innerHTML='<div class="operator-list-head"><span>Nome do operador</span><span>Status</span><span style="text-align:right">Ações</span></div>'+db.operators.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR')).map(o=>{
+    return `<div class="operator-row">
+      <div class="operator-name">${escapeHtml(o.name)} ${o.outOfQueue?'<span class="badge wait">Fora da fila</span>':''}</div>
+      <div class="operator-status"><span class="badge ${o.active?'active':'done'}">${o.active?'Ativo':'Inativo'}</span></div>
       <div class="actions">
         <button class="btn btn-blue" onclick="showOperatorDetails('${o.id}')">Detalhes</button>
         <button class="btn btn-secondary" onclick="editOperator('${o.id}')">Editar</button>
         <button class="btn ${o.active?'btn-warning':'btn-primary'}" onclick="toggleOperator('${o.id}')">${o.active?'Desativar':'Ativar'}</button>
       </div>
     </div>`;
-  }).join(''):'<div class="card empty">Nenhum operador cadastrado.</div>';
+  }).join('');
 }
 
 function showOperatorDetails(id){
@@ -845,16 +902,22 @@ document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',(
 document.getElementById('monthFilter').value=monthNow();
 document.getElementById('historyMonth').value='';
 document.getElementById('monthFilter').addEventListener('change',renderDashboard);
-document.getElementById('searchHistoryBtn').addEventListener('click',renderHistory);
+document.getElementById('searchHistoryBtn').addEventListener('click',()=>{
+  window.historySearchSubmitted=true;
+  renderHistory();
+});
 document.getElementById('clearHistoryBtn').addEventListener('click',()=>{
   document.getElementById('historySearch').value='';
   document.getElementById('historyOperator').value='';
   document.getElementById('historyMonth').value='';
+  window.historySearchSubmitted=false;
   renderHistory();
 });
-document.getElementById('historySearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();renderHistory();}});
+document.getElementById('historySearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();window.historySearchSubmitted=true;renderHistory();}});
+document.getElementById('historyOperator').addEventListener('change',()=>{window.historySearchSubmitted=true;renderHistory();});
+document.getElementById('historyMonth').addEventListener('change',()=>{window.historySearchSubmitted=true;renderHistory();});
 
-function renderAll(){populateOperatorSelects();renderDashboard();renderActive();renderHistory();renderOperators();}
+function renderAll(){populateOperatorSelects();renderDashboard();renderActive();window.historySearchSubmitted=false;renderHistory();renderOperators();}
 document.getElementById('currentDate').textContent=fmt(today());
 
 document.getElementById('loginForm').addEventListener('submit',async e=>{
