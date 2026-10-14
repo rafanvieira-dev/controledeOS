@@ -408,6 +408,7 @@ header > div:last-child{
     <button data-page="ordens"><span class="svg-icon-placeholder" data-svg-icon="file"></span>Ordens Ativas</button>
     <button data-page="historico"><span class="svg-icon-placeholder" data-svg-icon="clock"></span>Histórico</button>
     <button data-page="operadores"><span class="svg-icon-placeholder" data-svg-icon="users"></span>Operadores</button>
+    <button data-page="auditoria" data-admin-only hidden><span class="svg-icon-placeholder" data-svg-icon="clock"></span>Auditoria de uso</button>
   </nav>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span id="userIdentity" style="font-size:13px;font-weight:600;max-width:230px;overflow-wrap:anywhere"></span><strong id="currentDate"></strong><button id="logoutBtn" class="btn btn-secondary" type="button"><span class="svg-icon-placeholder" data-svg-icon="logout"></span>Sair</button></div>
 </header>
@@ -466,6 +467,19 @@ header > div:last-child{
           <button id="clearHistoryBtn" class="btn btn-secondary" type="button">Limpar filtros</button>
         </div>
         <div id="historyPrompt" class="history-results-empty">Use a pesquisa por número, título, operador ou mês e clique em <strong>Pesquisar</strong> para exibir os resultados.</div><div id="historyResultsWrap" class="table-wrap history-table-wrap" hidden><table><thead><tr><th>Nº Ordem</th><th>Título</th><th>Operador</th><th>Entrada</th><th>Prevista</th><th>Conclusão</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="historyTable"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="auditoria" class="page">
+      <div class="section-title"><h2>Auditoria de uso do sistema</h2><button class="btn btn-secondary" type="button" onclick="renderAudit()">Atualizar</button></div>
+      <div class="card">
+        <div class="searchbar">
+          <input id="auditSearch" placeholder="Pesquisar usuário, ação ou nº da OS..." oninput="renderAudit()">
+          <select id="auditAction" onchange="renderAudit()"><option value="">Todas as ações</option><option value="Login">Login</option><option value="Criou ordem">Criação de ordem</option><option value="Editou ordem">Edição de ordem</option><option value="Pendenciou ordem">Pendenciamento</option><option value="Retomou ordem">Retomada</option><option value="Concluiu ordem">Conclusão</option><option value="Excluiu ordem">Exclusão</option></select>
+          <input id="auditMonth" type="month" onchange="renderAudit()">
+        </div>
+        <p class="muted">Registro de login e das principais alterações feitas no sistema. O nome/e-mail identifica a conta autenticada.</p>
+        <div class="table-wrap"><table><thead><tr><th>Data e hora</th><th>Usuário</th><th>Perfil</th><th>Ação</th><th>Detalhes</th><th>OS</th></tr></thead><tbody id="auditTable"></tbody></table></div>
       </div>
     </section>
 
@@ -567,7 +581,7 @@ const auth = getAuth(app);
 const firestore = getFirestore(app);
 const DATA_DOC = doc(firestore, "sistema", "controle_ordens_servico");
 
-let db = {operators:[], orders:[]};
+let db = {operators:[], orders:[], audit:[]};
 let unsubscribeData = null;
 let suppressRender = false;
 
@@ -632,9 +646,16 @@ function requireAdmin(action='realizar esta ação'){
   toast('Apenas o administrador pode '+action+'.');
   return false;
 }
+function auditEvent(action, details='', order=null){
+  if(!Array.isArray(db.audit)) db.audit=[];
+  const when=new Date();
+  db.audit.unshift({id:uid(),at:when.toISOString(),userId:signedInUser?.uid||'',userName:userDisplayName(signedInUser),userEmail:signedInUser?.email||'',role:isAdmin?'Administrador':'Usuário',action,details,orderId:order?.id||'',orderNumber:order?.number||''});
+  // Mantém o histórico com limite para não crescer indefinidamente.
+  db.audit=db.audit.slice(0,3000);
+}
 async function save(){
   try{
-    await setDoc(DATA_DOC, {operators:db.operators, orders:db.orders}, {merge:false});
+    await setDoc(DATA_DOC, {operators:db.operators, orders:db.orders, audit:Array.isArray(db.audit)?db.audit:[]}, {merge:false});
     toast('Dados salvos na nuvem.');
   }catch(e){
     console.error(e);
@@ -838,6 +859,19 @@ function renderHistory(){
   document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId,o.operatorName))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${fmtDateTime(o.completedAt,o.completedTime)}</td><td><span class="badge done">Concluída</span></td><td><div class="actions">${isAdmin?`<button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button>`:'<span class="muted">Somente consulta</span>'}</div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem concluída encontrada com esses filtros.</td></tr>';
 }
 
+function renderAudit(){
+  if(!isAdmin)return;
+  const q=String(document.getElementById('auditSearch')?.value||'').trim().toLowerCase();
+  const action=document.getElementById('auditAction')?.value||'';
+  const month=document.getElementById('auditMonth')?.value||'';
+  let rows=Array.isArray(db.audit)?db.audit.slice():[];
+  if(q)rows=rows.filter(x=>[x.userName,x.userEmail,x.action,x.details,x.orderNumber].join(' ').toLowerCase().includes(q));
+  if(action)rows=rows.filter(x=>x.action===action);
+  if(month)rows=rows.filter(x=>String(x.at||'').slice(0,7)===month);
+  const fmtAuditDate=v=>{if(!v)return '-';const d=new Date(v);return isNaN(d)?'-':d.toLocaleString('pt-BR');};
+  document.getElementById('auditTable').innerHTML=rows.length?rows.map(x=>`<tr><td>${fmtAuditDate(x.at)}</td><td><strong>${escapeHtml(x.userName||'Usuário')}</strong><br><small>${escapeHtml(x.userEmail||'')}</small></td><td>${escapeHtml(x.role||'Usuário')}</td><td>${escapeHtml(x.action||'')}</td><td>${escapeHtml(x.details||'')}</td><td>${escapeHtml(x.orderNumber||'-')}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">Nenhum registro encontrado.</td></tr>';
+}
+
 function renderOperators(){
   const host=document.getElementById('operatorsList');
   if(!db.operators.length){
@@ -911,10 +945,12 @@ async function togglePendingOrder(id){
     ? `Retomar a ordem ${o.number}? A contagem do prazo continuará de onde parou.`
     : `Pendenciar a ordem ${o.number}? O prazo ficará congelado até você retomar a OS.`))return;
   if(!wasPending){
+    auditEvent('Pendenciou ordem',`Pendenciou a ordem ${o.number}`,o);
     o.status='pending';
     o.pausedAt=new Date().toISOString();
     o.pendingSince=today();
   }else{
+    auditEvent('Retomou ordem',`Retomou a ordem ${o.number}`,o);
     const data=businessDeadlineData(o,'23:59');
     if(o.pausedAt&&data){
       const pauseStart=new Date(o.pausedAt);
@@ -937,7 +973,7 @@ async function togglePendingOrder(id){
 async function completeOrder(id){
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
   if(!confirm(`Concluir a ordem ${o.number}?`))return;
-  o.status='done';o.completedAt=today();o.completedTime=nowTime();
+  auditEvent('Concluiu ordem',`Concluiu a ordem ${o.number}`,o);o.status='done';o.completedAt=today();o.completedTime=nowTime();
   const op=operatorById(o.operatorId);if(op)o.operatorName=op.name;
   await save();renderAll();toast(`Ordem concluída às ${o.completedTime}.`);
 }
@@ -945,14 +981,14 @@ async function returnOrderToEdit(id){
   if(!requireAdmin('devolver ordens concluídas'))return;
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
   if(!confirm(`Devolver a ordem ${o.number} para edição? Ela sairá do histórico e voltará para as ordens ativas.`))return;
-  o.status='active';o.completedAt=null;o.completedTime=null;o.pausedAt=null;o.pausedBusinessMs=0;
+  auditEvent('Devolveu ordem',`Devolveu a ordem ${o.number} para edição`,o);o.status='active';o.completedAt=null;o.completedTime=null;o.pausedAt=null;o.pausedBusinessMs=0;
   await save();renderAll();toast(`Ordem ${o.number} devolvida para edição.`);
 }
 async function deleteOrder(id){
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
   if(o.status==='done'&&!requireAdmin('excluir ordens concluídas'))return;
   if(!confirm(`Excluir a ordem ${o.number}? Esta ação não poderá ser desfeita.`))return;
-  db.orders=db.orders.filter(x=>String(x.id)!==String(id));await save();renderAll();toast('Ordem excluída.');
+  auditEvent('Excluiu ordem',`Excluiu a ordem ${o.number} — ${o.title}`,o);db.orders=db.orders.filter(x=>String(x.id)!==String(id));await save();renderAll();toast('Ordem excluída.');
 }
 function openOperatorModal(id=null){if(!requireAdmin('cadastrar ou editar operadores'))return;
   document.getElementById('operatorModalTitle').textContent=id?'Editar operador':'Novo operador';document.getElementById('operatorId').value=id||'';
@@ -961,7 +997,7 @@ function openOperatorModal(id=null){if(!requireAdmin('cadastrar ou editar operad
   document.getElementById('operatorModal').classList.add('open');
 }
 function editOperator(id){if(!requireAdmin('editar operadores'))return;openOperatorModal(id);}
-async function toggleOperator(id){if(!requireAdmin('ativar ou desativar operadores'))return;const o=operatorById(id);if(!o)return;o.active=!o.active;await save();renderAll();toast(o.active?'Operador ativado.':'Operador desativado.');}
+async function toggleOperator(id){if(!requireAdmin('ativar ou desativar operadores'))return;const o=operatorById(id);if(!o)return;o.active=!o.active;auditEvent(o.active?'Ativou operador':'Desativou operador',`${o.name} foi ${o.active?'ativado':'desativado'}`);await save();renderAll();toast(o.active?'Operador ativado.':'Operador desativado.');}
 
 document.getElementById('orderForm').addEventListener('submit',async e=>{
   e.preventDefault();
@@ -969,16 +1005,16 @@ document.getElementById('orderForm').addEventListener('submit',async e=>{
   const operatorId=document.getElementById('orderOperator').value,op=operatorById(operatorId);
   const data={number:document.getElementById('orderNumber').value.trim(),title:document.getElementById('orderTitle').value.trim(),entry:document.getElementById('orderEntry').value,entryTime:document.getElementById('orderEntryTime').value,due:document.getElementById('orderDue').value,dueTime:document.getElementById('orderDueTime').value,operatorId,operatorName:op?.name||''};
   if(!operatorId){alert('Cadastre e ative pelo menos um operador.');return;}
-  if(id){const target=db.orders.find(x=>String(x.id)===String(id));if(target)Object.assign(target,data);}
-  else db.orders.push({id:uid(),...data,status:'active',createdAt:today(),completedAt:null,completedTime:null});
+  if(id){const target=db.orders.find(x=>String(x.id)===String(id));if(target){Object.assign(target,data);auditEvent('Editou ordem',`Atualizou os dados da ordem ${target.number} — ${target.title}`,target);}}
+  else {const created={id:uid(),...data,status:'active',createdAt:today(),createdAtTime:nowTime(),createdBy:signedInUser?.uid||'',createdByName:userDisplayName(signedInUser),createdByEmail:signedInUser?.email||'',completedAt:null,completedTime:null};db.orders.push(created);auditEvent('Criou ordem',`Criou a ordem ${created.number} — ${created.title}`,created);}
   await save();closeModal('orderModal');renderAll();toast(id?'Ordem atualizada.':'Ordem cadastrada.');
 });
 
 document.getElementById('operatorForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!requireAdmin('cadastrar ou alterar operadores'))return;const id=document.getElementById('operatorId').value;
   const data={name:document.getElementById('operatorName').value.trim(),code:document.getElementById('operatorCode').value.trim(),active:document.getElementById('operatorActive').value==='true',outOfQueue:document.getElementById('operatorOutOfQueue').checked};
-  if(id){const target=operatorById(id);if(target)Object.assign(target,data);}
-  else db.operators.push({id:uid(),...data});
+  if(id){const target=operatorById(id);if(target){Object.assign(target,data);auditEvent('Editou operador',`Alterou o operador ${data.name}`);}}
+  else {db.operators.push({id:uid(),...data});auditEvent('Criou operador',`Cadastrou o operador ${data.name}`);}
   // Atualiza o nome gravado nas ordens desse operador para manter compatibilidade.
   db.orders.forEach(o=>{if(String(o.operatorId)===String(id))o.operatorName=data.name;});
   await save();closeModal('operatorModal');renderAll();toast(id?'Operador atualizado.':'Operador cadastrado.');
@@ -1007,7 +1043,7 @@ document.getElementById('historySearch').addEventListener('keydown',e=>{if(e.key
 document.getElementById('historyOperator').addEventListener('change',()=>{window.historySearchSubmitted=true;renderHistory();});
 document.getElementById('historyMonth').addEventListener('change',()=>{window.historySearchSubmitted=true;renderHistory();});
 
-function renderAll(){populateOperatorSelects();renderDashboard();renderActive();window.historySearchSubmitted=false;renderHistory();renderOperators();}
+function renderAll(){populateOperatorSelects();renderDashboard();renderActive();window.historySearchSubmitted=false;renderHistory();renderOperators();if(isAdmin)renderAudit();}
 document.getElementById('currentDate').textContent=fmt(today());
 
 document.getElementById('loginForm').addEventListener('submit',async e=>{
@@ -1039,7 +1075,7 @@ document.getElementById('googleLoginBtn').addEventListener('click',async()=>{
     err.style.display='block';
   }finally{loading.textContent='';}
 });
-document.getElementById('logoutBtn').addEventListener('click',async()=>{if(confirm('Deseja sair do sistema?'))await signOut(auth);});
+document.getElementById('logoutBtn').addEventListener('click',async()=>{if(confirm('Deseja sair do sistema?')){auditEvent('Logout','Saiu do sistema');await save();await signOut(auth);}});
 
 onAuthStateChanged(auth,async user=>{
   const login=document.getElementById('loginScreen'),shell=document.getElementById('appShell');
@@ -1052,13 +1088,15 @@ onAuthStateChanged(auth,async user=>{
   login.style.display='none';shell.style.display='block';
   try{
     const snap=await getDoc(DATA_DOC);
-    if(snap.exists()){const data=snap.data();db={operators:Array.isArray(data.operators)?data.operators:[],orders:Array.isArray(data.orders)?data.orders:[]};}
-    else {db={operators:[],orders:[]};await setDoc(DATA_DOC,db);}
+    if(snap.exists()){const data=snap.data();db={operators:Array.isArray(data.operators)?data.operators:[],orders:Array.isArray(data.orders)?data.orders:[],audit:Array.isArray(data.audit)?data.audit:[]};}
+    else {db={operators:[],orders:[],audit:[]};await setDoc(DATA_DOC,db);}
+    auditEvent('Login','Entrou no sistema');
+    await setDoc(DATA_DOC,{operators:db.operators,orders:db.orders,audit:db.audit},{merge:false});
     renderAll();
     if(unsubscribeData)unsubscribeData();
     unsubscribeData=onSnapshot(DATA_DOC,s=>{
       if(!s.exists())return;
-      const data=s.data();db={operators:Array.isArray(data.operators)?data.operators:[],orders:Array.isArray(data.orders)?data.orders:[]};
+      const data=s.data();db={operators:Array.isArray(data.operators)?data.operators:[],orders:Array.isArray(data.orders)?data.orders:[],audit:Array.isArray(data.audit)?data.audit:[]};
       renderAll();
     },e=>{console.error(e);toast('Erro de sincronização: '+friendlyError(e));});
   }catch(e){
@@ -1073,7 +1111,7 @@ setInterval(()=>{if(document.getElementById('ordens').classList.contains('active
 Object.assign(window,{
   openOrderModal,closeModal,editOrder,completeOrder,deleteOrder,returnOrderToEdit,
   openOperatorModal,editOperator,toggleOperator,showOperatorDetails,renderActive,renderHistory,renderDashboard,
-  togglePendingOrder
+  togglePendingOrder,renderAudit
 });
 </script>
 
