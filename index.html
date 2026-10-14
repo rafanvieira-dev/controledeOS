@@ -87,6 +87,7 @@ tr:last-child td{border-bottom:0}
 .login-card{background:#fff;width:min(420px,100%);border-radius:14px;padding:28px;box-shadow:0 15px 45px #0004}
 .login-card h2{margin:0 0 8px;color:#006837}.login-card p{margin:0 0 20px;color:#6b7280}
 .login-card .field{margin-bottom:14px}.login-card .field input{width:100%}
+.login-admin-label{display:block;text-align:center;margin:0 0 16px;padding:10px 12px;border:1px solid #b9e6cf;border-radius:9px;background:#eaf8f0;color:#006b43;font-size:13px;font-weight:800;letter-spacing:.04em}
 .login-error{display:none;background:#fee2e2;color:#991b1b;padding:10px;border-radius:7px;margin-bottom:12px;font-size:13px}
 .login-loading{text-align:center;color:#6b7280;font-size:13px;margin-top:10px}
 #appShell{display:none}
@@ -376,6 +377,7 @@ header > div:last-child{
     <p>Entre com seu e-mail e senha ou use sua conta Google.</p>
     <div id="loginError" class="login-error"></div>
     <form id="loginForm">
+      <div class="login-admin-label">Somente Administrador</div>
       <div class="field">
         <label for="loginEmail">E-mail</label>
         <input id="loginEmail" type="email" autocomplete="username" required>
