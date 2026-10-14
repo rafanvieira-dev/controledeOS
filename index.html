@@ -409,7 +409,7 @@ header > div:last-child{
     <button data-page="historico"><span class="svg-icon-placeholder" data-svg-icon="clock"></span>Histórico</button>
     <button data-page="operadores"><span class="svg-icon-placeholder" data-svg-icon="users"></span>Operadores</button>
   </nav>
-  <div style="display:flex;align-items:center;gap:12px"><strong id="currentDate"></strong><button id="logoutBtn" class="btn btn-secondary" type="button"><span class="svg-icon-placeholder" data-svg-icon="logout"></span>Sair</button></div>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span id="userIdentity" style="font-size:13px;font-weight:600;max-width:230px;overflow-wrap:anywhere"></span><strong id="currentDate"></strong><button id="logoutBtn" class="btn btn-secondary" type="button"><span class="svg-icon-placeholder" data-svg-icon="logout"></span>Sair</button></div>
 </header>
 
 <div class="container">
@@ -470,7 +470,7 @@ header > div:last-child{
     </section>
 
     <section id="operadores" class="page">
-      <div class="section-title"><h2>Operadores</h2><button class="btn btn-primary" onclick="openOperatorModal()">+ Novo operador</button></div>
+      <div class="section-title"><h2>Operadores</h2><button data-admin-only class="btn btn-primary" onclick="openOperatorModal()">+ Novo operador</button></div>
       <div id="operatorsList" class="operator-grid"></div>
     </section>
   </main>
@@ -599,6 +599,39 @@ function nowTime(){const n=new Date();return `${String(n.getHours()).padStart(2,
 function dateTimeValue(date,time){const d=normalizeDate(date); if(!d)return null; return new Date(`${d}T${time||'00:00'}:00`);}
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 
+let signedInUser = null;
+let isAdmin = false;
+function userDisplayName(user){
+  return user?.displayName || user?.email || 'Usuário';
+}
+function hasPasswordProvider(user){
+  return Boolean(user?.providerData?.some(p=>p.providerId==='password'));
+}
+function hasGoogleProvider(user){
+  return Boolean(user?.providerData?.some(p=>p.providerId==='google.com'));
+}
+// Contas cadastradas com e-mail/senha no Firebase são administradoras;
+// contas Google são usuários comuns, mesmo que tenham nome/e-mail disponível.
+function updatePrivileges(user){
+  signedInUser=user||null;
+  isAdmin=Boolean(user && hasPasswordProvider(user) && !hasGoogleProvider(user));
+  const identity=document.getElementById('userIdentity');
+  if(identity) identity.textContent=user ? `${userDisplayName(user)} · ${isAdmin?'Administrador':'Usuário'}` : '';
+  document.querySelectorAll('[data-admin-only]').forEach(el=>{
+    el.hidden=!isAdmin;
+    el.setAttribute('aria-hidden',String(!isAdmin));
+  });
+  const operatorsNav=document.querySelector('[data-page="operadores"]');
+  if(operatorsNav) operatorsNav.hidden=!isAdmin;
+  if(!isAdmin && document.getElementById('operadores')?.classList.contains('active')){
+    document.querySelector('[data-page="dashboard"]')?.click();
+  }
+}
+function requireAdmin(action='realizar esta ação'){
+  if(isAdmin)return true;
+  toast('Apenas o administrador pode '+action+'.');
+  return false;
+}
 async function save(){
   try{
     await setDoc(DATA_DOC, {operators:db.operators, orders:db.orders}, {merge:false});
@@ -802,7 +835,7 @@ function renderHistory(){
     const dbb=normalizeDate(b.entry)+'T'+(b.entryTime||'00:00');
     return dbb.localeCompare(da);
   });
-  document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId,o.operatorName))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${fmtDateTime(o.completedAt,o.completedTime)}</td><td><span class="badge done">Concluída</span></td><td><div class="actions"><button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem concluída encontrada com esses filtros.</td></tr>';
+  document.getElementById('historyTable').innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${escapeHtml(o.number)}</strong></td><td>${escapeHtml(o.title)}</td><td>${escapeHtml(operatorName(o.operatorId,o.operatorName))}</td><td>${fmtDateTime(o.entry,o.entryTime)}</td><td>${fmtDateTime(o.due,o.dueTime)}</td><td>${fmtDateTime(o.completedAt,o.completedTime)}</td><td><span class="badge done">Concluída</span></td><td><div class="actions">${isAdmin?`<button class="btn btn-blue" onclick="returnOrderToEdit('${o.id}')">Devolver</button><button class="btn btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button>`:'<span class="muted">Somente consulta</span>'}</div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhuma ordem concluída encontrada com esses filtros.</td></tr>';
 }
 
 function renderOperators(){
@@ -817,8 +850,8 @@ function renderOperators(){
       <div class="operator-status"><span class="badge ${o.active?'active':'done'}">${o.active?'Ativo':'Inativo'}</span></div>
       <div class="actions">
         <button class="btn btn-blue" onclick="showOperatorDetails('${o.id}')">Detalhes</button>
-        <button class="btn btn-secondary" onclick="editOperator('${o.id}')">Editar</button>
-        <button class="btn ${o.active?'btn-warning':'btn-primary'}" onclick="toggleOperator('${o.id}')">${o.active?'Desativar':'Ativar'}</button>
+        ${isAdmin?`<button class="btn btn-secondary" onclick="editOperator('${o.id}')">Editar</button>
+        <button class="btn ${o.active?'btn-warning':'btn-primary'}" onclick="toggleOperator('${o.id}')">${o.active?'Desativar':'Ativar'}</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -845,6 +878,14 @@ function showOperatorDetails(id){
 }
 
 function openOrderModal(id=null){
+  // Ambos os perfis podem cadastrar novas ordens; usuários comuns não editam ordens concluídas.
+  if(id && !isAdmin){
+    const existing=db.orders.find(x=>String(x.id)===String(id));
+    if(existing && existing.status==='done'){
+      toast('Usuários comuns não podem editar ordens concluídas.');
+      return;
+    }
+  }
   populateOperatorSelects();
   document.getElementById('orderModalTitle').textContent=id?'Editar ordem de serviço':'Nova ordem de serviço';
   document.getElementById('orderId').value=id||'';
@@ -901,6 +942,7 @@ async function completeOrder(id){
   await save();renderAll();toast(`Ordem concluída às ${o.completedTime}.`);
 }
 async function returnOrderToEdit(id){
+  if(!requireAdmin('devolver ordens concluídas'))return;
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
   if(!confirm(`Devolver a ordem ${o.number} para edição? Ela sairá do histórico e voltará para as ordens ativas.`))return;
   o.status='active';o.completedAt=null;o.completedTime=null;o.pausedAt=null;o.pausedBusinessMs=0;
@@ -908,17 +950,18 @@ async function returnOrderToEdit(id){
 }
 async function deleteOrder(id){
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
+  if(o.status==='done'&&!requireAdmin('excluir ordens concluídas'))return;
   if(!confirm(`Excluir a ordem ${o.number}? Esta ação não poderá ser desfeita.`))return;
   db.orders=db.orders.filter(x=>String(x.id)!==String(id));await save();renderAll();toast('Ordem excluída.');
 }
-function openOperatorModal(id=null){
+function openOperatorModal(id=null){if(!requireAdmin('cadastrar ou editar operadores'))return;
   document.getElementById('operatorModalTitle').textContent=id?'Editar operador':'Novo operador';document.getElementById('operatorId').value=id||'';
   if(id){const o=operatorById(id);if(!o)return;document.getElementById('operatorName').value=o.name;document.getElementById('operatorCode').value=o.code||'';document.getElementById('operatorActive').value=String(o.active);document.getElementById('operatorOutOfQueue').checked=!!o.outOfQueue;}
   else {document.getElementById('operatorForm').reset();document.getElementById('operatorOutOfQueue').checked=false;}
   document.getElementById('operatorModal').classList.add('open');
 }
-function editOperator(id){openOperatorModal(id);}
-async function toggleOperator(id){const o=operatorById(id);if(!o)return;o.active=!o.active;await save();renderAll();toast(o.active?'Operador ativado.':'Operador desativado.');}
+function editOperator(id){if(!requireAdmin('editar operadores'))return;openOperatorModal(id);}
+async function toggleOperator(id){if(!requireAdmin('ativar ou desativar operadores'))return;const o=operatorById(id);if(!o)return;o.active=!o.active;await save();renderAll();toast(o.active?'Operador ativado.':'Operador desativado.');}
 
 document.getElementById('orderForm').addEventListener('submit',async e=>{
   e.preventDefault();
@@ -932,7 +975,7 @@ document.getElementById('orderForm').addEventListener('submit',async e=>{
 });
 
 document.getElementById('operatorForm').addEventListener('submit',async e=>{
-  e.preventDefault();const id=document.getElementById('operatorId').value;
+  e.preventDefault();if(!requireAdmin('cadastrar ou alterar operadores'))return;const id=document.getElementById('operatorId').value;
   const data={name:document.getElementById('operatorName').value.trim(),code:document.getElementById('operatorCode').value.trim(),active:document.getElementById('operatorActive').value==='true',outOfQueue:document.getElementById('operatorOutOfQueue').checked};
   if(id){const target=operatorById(id);if(target)Object.assign(target,data);}
   else db.operators.push({id:uid(),...data});
@@ -1001,9 +1044,11 @@ document.getElementById('logoutBtn').addEventListener('click',async()=>{if(confi
 onAuthStateChanged(auth,async user=>{
   const login=document.getElementById('loginScreen'),shell=document.getElementById('appShell');
   if(!user){
+    updatePrivileges(null);
     if(unsubscribeData){unsubscribeData();unsubscribeData=null;}
     login.style.display='flex';shell.style.display='none';return;
   }
+  updatePrivileges(user);
   login.style.display='none';shell.style.display='block';
   try{
     const snap=await getDoc(DATA_DOC);
