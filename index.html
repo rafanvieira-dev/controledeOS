@@ -87,7 +87,6 @@ tr:last-child td{border-bottom:0}
 .login-card{background:#fff;width:min(420px,100%);border-radius:14px;padding:28px;box-shadow:0 15px 45px #0004}
 .login-card h2{margin:0 0 8px;color:#006837}.login-card p{margin:0 0 20px;color:#6b7280}
 .login-card .field{margin-bottom:14px}.login-card .field input{width:100%}
-.login-admin-label{display:block;text-align:center;margin:0 0 16px;padding:10px 12px;border:1px solid #b9e6cf;border-radius:9px;background:#eaf8f0;color:#006b43;font-size:13px;font-weight:800;letter-spacing:.04em}
 .login-error{display:none;background:#fee2e2;color:#991b1b;padding:10px;border-radius:7px;margin-bottom:12px;font-size:13px}
 .login-loading{text-align:center;color:#6b7280;font-size:13px;margin-top:10px}
 #appShell{display:none}
@@ -377,7 +376,6 @@ header > div:last-child{
     <p>Entre com seu e-mail e senha ou use sua conta Google.</p>
     <div id="loginError" class="login-error"></div>
     <form id="loginForm">
-      <div class="login-admin-label">Somente Administrador</div>
       <div class="field">
         <label for="loginEmail">E-mail</label>
         <input id="loginEmail" type="email" autocomplete="username" required>
@@ -476,11 +474,11 @@ header > div:last-child{
       <div class="section-title"><h2>Auditoria de uso do sistema</h2><button class="btn btn-secondary" type="button" onclick="renderAudit()">Atualizar</button></div>
       <div class="card">
         <div class="searchbar">
-          <input id="auditSearch" placeholder="Pesquisar usuário, ação ou nº da OS..." oninput="renderAudit()">
-          <select id="auditAction" onchange="renderAudit()"><option value="">Todas as ações</option><option value="Login">Login</option><option value="Criou ordem">Criação de ordem</option><option value="Editou ordem">Edição de ordem</option><option value="Pendenciou ordem">Pendenciamento</option><option value="Retomou ordem">Retomada</option><option value="Concluiu ordem">Conclusão</option><option value="Excluiu ordem">Exclusão</option></select>
+          <input id="auditSearch" placeholder="Pesquisar usuário ou nº da OS..." oninput="renderAudit()">
+          <select id="auditAction" onchange="renderAudit()"><option value="">Todas as ações</option><option value="Criou ordem">Inclusão de ordem</option><option value="Editou ordem">Edição de ordem</option><option value="Excluiu ordem">Exclusão de ordem</option></select>
           <input id="auditMonth" type="month" onchange="renderAudit()">
         </div>
-        <p class="muted">Registro de login e das principais alterações feitas no sistema. O nome/e-mail identifica a conta autenticada.</p>
+        <p class="muted">Registro exclusivo de inclusão, edição e exclusão de ordens de serviço. O nome/e-mail identifica quem realizou cada ação.</p>
         <div class="table-wrap"><table><thead><tr><th>Data e hora</th><th>Usuário</th><th>Perfil</th><th>Ação</th><th>Detalhes</th><th>OS</th></tr></thead><tbody id="auditTable"></tbody></table></div>
       </div>
     </section>
@@ -866,7 +864,8 @@ function renderAudit(){
   const q=String(document.getElementById('auditSearch')?.value||'').trim().toLowerCase();
   const action=document.getElementById('auditAction')?.value||'';
   const month=document.getElementById('auditMonth')?.value||'';
-  let rows=Array.isArray(db.audit)?db.audit.slice():[];
+  const trackedActions=['Criou ordem','Editou ordem','Excluiu ordem'];
+  let rows=Array.isArray(db.audit)?db.audit.filter(x=>trackedActions.includes(x.action)):[];
   if(q)rows=rows.filter(x=>[x.userName,x.userEmail,x.action,x.details,x.orderNumber].join(' ').toLowerCase().includes(q));
   if(action)rows=rows.filter(x=>x.action===action);
   if(month)rows=rows.filter(x=>String(x.at||'').slice(0,7)===month);
@@ -947,12 +946,10 @@ async function togglePendingOrder(id){
     ? `Retomar a ordem ${o.number}? A contagem do prazo continuará de onde parou.`
     : `Pendenciar a ordem ${o.number}? O prazo ficará congelado até você retomar a OS.`))return;
   if(!wasPending){
-    auditEvent('Pendenciou ordem',`Pendenciou a ordem ${o.number}`,o);
-    o.status='pending';
+      o.status='pending';
     o.pausedAt=new Date().toISOString();
     o.pendingSince=today();
   }else{
-    auditEvent('Retomou ordem',`Retomou a ordem ${o.number}`,o);
     const data=businessDeadlineData(o,'23:59');
     if(o.pausedAt&&data){
       const pauseStart=new Date(o.pausedAt);
@@ -975,7 +972,7 @@ async function togglePendingOrder(id){
 async function completeOrder(id){
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
   if(!confirm(`Concluir a ordem ${o.number}?`))return;
-  auditEvent('Concluiu ordem',`Concluiu a ordem ${o.number}`,o);o.status='done';o.completedAt=today();o.completedTime=nowTime();
+o.status='done';o.completedAt=today();o.completedTime=nowTime();
   const op=operatorById(o.operatorId);if(op)o.operatorName=op.name;
   await save();renderAll();toast(`Ordem concluída às ${o.completedTime}.`);
 }
@@ -983,7 +980,7 @@ async function returnOrderToEdit(id){
   if(!requireAdmin('devolver ordens concluídas'))return;
   const o=db.orders.find(x=>String(x.id)===String(id));if(!o)return;
   if(!confirm(`Devolver a ordem ${o.number} para edição? Ela sairá do histórico e voltará para as ordens ativas.`))return;
-  auditEvent('Devolveu ordem',`Devolveu a ordem ${o.number} para edição`,o);o.status='active';o.completedAt=null;o.completedTime=null;o.pausedAt=null;o.pausedBusinessMs=0;
+o.status='active';o.completedAt=null;o.completedTime=null;o.pausedAt=null;o.pausedBusinessMs=0;
   await save();renderAll();toast(`Ordem ${o.number} devolvida para edição.`);
 }
 async function deleteOrder(id){
@@ -1077,7 +1074,7 @@ document.getElementById('googleLoginBtn').addEventListener('click',async()=>{
     err.style.display='block';
   }finally{loading.textContent='';}
 });
-document.getElementById('logoutBtn').addEventListener('click',async()=>{if(confirm('Deseja sair do sistema?')){auditEvent('Logout','Saiu do sistema');await save();await signOut(auth);}});
+document.getElementById('logoutBtn').addEventListener('click',async()=>{if(confirm('Deseja sair do sistema?')){await signOut(auth);}});
 
 onAuthStateChanged(auth,async user=>{
   const login=document.getElementById('loginScreen'),shell=document.getElementById('appShell');
@@ -1092,8 +1089,7 @@ onAuthStateChanged(auth,async user=>{
     const snap=await getDoc(DATA_DOC);
     if(snap.exists()){const data=snap.data();db={operators:Array.isArray(data.operators)?data.operators:[],orders:Array.isArray(data.orders)?data.orders:[],audit:Array.isArray(data.audit)?data.audit:[]};}
     else {db={operators:[],orders:[],audit:[]};await setDoc(DATA_DOC,db);}
-    auditEvent('Login','Entrou no sistema');
-    await setDoc(DATA_DOC,{operators:db.operators,orders:db.orders,audit:db.audit},{merge:false});
+    // A auditoria registra somente inclusão, edição e exclusão de ordens de serviço.
     renderAll();
     if(unsubscribeData)unsubscribeData();
     unsubscribeData=onSnapshot(DATA_DOC,s=>{
