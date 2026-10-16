@@ -826,6 +826,16 @@ function renderDashboard(){
 function renderActive(){
   const q=document.getElementById('activeSearch').value.toLowerCase(),op=document.getElementById('activeOperator').value,st=document.getElementById('activeStatus').value;
   let rows=db.orders.filter(o=>o.status==='active'||o.status==='pending');
+  // Mais recentes primeiro: usa a data e o horário de entrada da ordem.
+  const receivedTimestamp=o=>{
+    const date=String(o.entry||'').trim();
+    const time=String(o.entryTime||'00:00').trim();
+    const isoDate=/^\d{4}-\d{2}-\d{2}$/.test(date)?date:
+      (/^\d{2}\/\d{2}\/\d{4}$/.test(date)?date.split('/').reverse().join('-'):'');
+    const stamp=isoDate?Date.parse(isoDate+'T'+(/^\d{2}:\d{2}/.test(time)?time.slice(0,5):'00:00')+':00'):Date.parse(date);
+    return Number.isFinite(stamp)?stamp:0;
+  };
+  rows.sort((a,b)=>receivedTimestamp(b)-receivedTimestamp(a));
   if(q)rows=rows.filter(o=>(String(o.number)+' '+String(o.title)).toLowerCase().includes(q));
   if(op)rows=rows.filter(o=>operatorMatchesOrder(o,op));
   if(st==='late')rows=rows.filter(o=>o.status==='active'&&isLate(o));else if(st==='pending')rows=rows.filter(o=>o.status==='pending');else if(st==='active')rows=rows.filter(o=>o.status==='active');
