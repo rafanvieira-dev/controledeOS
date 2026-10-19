@@ -530,6 +530,7 @@ header > div:last-child{
       <input type="hidden" id="operatorId">
       <div class="form-grid">
         <div class="field span2"><label>Nome do operador *</label><input id="operatorName" required></div>
+        <div class="field span2"><label>E-mail para alertas de prazo *</label><input id="operatorEmail" type="email" autocomplete="email" placeholder="operador@exemplo.com" required></div>
         <div class="field"><label>Matrícula / identificação</label><input id="operatorCode"></div>
         <div class="field"><label>Status</label><select id="operatorActive"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
         <div class="field span4"><label style="display:flex;align-items:center;gap:8px;font-weight:700"><input id="operatorOutOfQueue" type="checkbox" style="width:auto"> Fora da fila de distribuição (somente casos especiais)</label></div>
@@ -1027,7 +1028,7 @@ async function deleteOrder(id){
 }
 function openOperatorModal(id=null){if(!requireAdmin('cadastrar ou editar operadores'))return;
   document.getElementById('operatorModalTitle').textContent=id?'Editar operador':'Novo operador';document.getElementById('operatorId').value=id||'';
-  if(id){const o=operatorById(id);if(!o)return;document.getElementById('operatorName').value=o.name;document.getElementById('operatorCode').value=o.code||'';document.getElementById('operatorActive').value=String(o.active);document.getElementById('operatorOutOfQueue').checked=!!o.outOfQueue;}
+  if(id){const o=operatorById(id);if(!o)return;document.getElementById('operatorName').value=o.name;document.getElementById('operatorEmail').value=o.email||'';document.getElementById('operatorCode').value=o.code||'';document.getElementById('operatorActive').value=String(o.active);document.getElementById('operatorOutOfQueue').checked=!!o.outOfQueue;}
   else {document.getElementById('operatorForm').reset();document.getElementById('operatorOutOfQueue').checked=false;}
   document.getElementById('operatorModal').classList.add('open');
 }
@@ -1047,7 +1048,7 @@ document.getElementById('orderForm').addEventListener('submit',async e=>{
 
 document.getElementById('operatorForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!requireAdmin('cadastrar ou alterar operadores'))return;const id=document.getElementById('operatorId').value;
-  const data={name:document.getElementById('operatorName').value.trim(),code:document.getElementById('operatorCode').value.trim(),active:document.getElementById('operatorActive').value==='true',outOfQueue:document.getElementById('operatorOutOfQueue').checked};
+  const data={name:document.getElementById('operatorName').value.trim(),email:document.getElementById('operatorEmail').value.trim().toLowerCase(),code:document.getElementById('operatorCode').value.trim(),active:document.getElementById('operatorActive').value==='true',outOfQueue:document.getElementById('operatorOutOfQueue').checked};
   if(id){const target=operatorById(id);if(target){Object.assign(target,data);auditEvent('Editou operador',`Alterou o operador ${data.name}`);}}
   else {db.operators.push({id:uid(),...data});auditEvent('Criou operador',`Cadastrou o operador ${data.name}`);}
   // Atualiza o nome gravado nas ordens desse operador para manter compatibilidade.
